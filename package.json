@@ -1,27 +1,53 @@
 {
-  "name": "akv-advanced-editor",
-  "version": "0.1.0",
+  "name": "griphook",
+  "version": "1.0.0",
+  "description": "Griphook - Your trusted Azure Key Vault secrets guardian. A modern, secure web application for managing Azure Key Vault secrets with advanced batch operations.",
   "private": true,
+  "keywords": [
+    "azure",
+    "key-vault",
+    "secrets-management",
+    "next.js",
+    "typescript",
+    "azure-sdk"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "docker:build": "docker build -t griphook:latest .",
+    "docker:dev": "docker build -f Dockerfile.dev -t griphook:dev .",
+    "docker:run": "docker run -d --name griphook -p 3000:3000 griphook:latest",
+    "docker:stop": "docker stop griphook && docker rm griphook",
+    "docker:compose": "docker-compose up -d",
+    "docker:compose:down": "docker-compose down"
   },
   "dependencies": {
+    "@azure/arm-keyvault": "^3.2.0",
+    "@azure/arm-subscriptions": "^5.1.0",
+    "@azure/core-auth": "^1.10.0",
+    "@azure/identity": "^4.10.2",
+    "@azure/keyvault-secrets": "^4.10.0",
+    "@headlessui/react": "^2.2.4",
+    "@types/uuid": "^10.0.0",
+    "lucide-react": "^0.525.0",
+    "next": "15.4.1",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "next": "15.4.1"
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
-    "typescript": "^5",
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4",
     "eslint": "^9",
     "eslint-config-next": "15.4.1",
-    "@eslint/eslintrc": "^3"
+    "tailwindcss": "^4",
+    "typescript": "^5"
   }
 }

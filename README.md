@@ -1,36 +1,218 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Griphook - Azure Key Vault Advanced Secrets Editor
 
-## Getting Started
+A modern, secure web application for managing Azure Key Vault secrets with advanced features including batch editing, adding new secrets, and deletion capabilities.
 
-First, run the development server:
+*Named after the goblin vault keeper at Gringotts - your trusted guardian for Azure Key Vault secrets.*
 
+![Griphook](https://img.shields.io/badge/Griphook-Azure%20Key%20Vault-gold)
+![Next.js](https://img.shields.io/badge/Next.js-15+-black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5+-blue)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-3+-blue)
+
+## ✨ Features
+
+### 🔐 **Secure Authentication**
+- **Azure AD OAuth** authentication with user-delegated permissions
+- **Individual user permissions** - users can only access Key Vaults they have access to
+- **Local browser caching** for improved performance and security
+
+### 📝 **Secret Management**
+- **Batch Operations**: Select and manage multiple secrets simultaneously
+- **Add New Secrets**: Create secrets with metadata, tags, and content types
+- **Secure Deletion**: Confirmation dialogs with warnings about dependencies
+- **In-place Editing**: Edit secret values directly in the interface
+
+### 🔍 **Advanced Features**
+- **Search & Filter**: Quick search across all secret names and Key Vaults
+- **Multi-Key Vault Support**: Manage secrets across multiple Key Vaults
+- **Performance Optimized**: Fast secret loading without expensive version history lookups
+- **Real-time Updates**: Instant feedback for all operations
+- **Audit Information**: View creation dates, update times, and expiration dates
+
+### 🎨 **Modern UI/UX**
+- **Responsive Design**: Works seamlessly on desktop and mobile
+- **Tailwind CSS**: Clean, modern interface
+- **Loading States**: Clear indicators for ongoing operations
+- **Error Handling**: Comprehensive error messages and recovery guidance
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js 18+ and npm
+- Azure AD application registration with appropriate permissions
+- Access to Azure Key Vaults you want to manage
+
+### Quick Start Options
+
+#### Option 1: Local Development
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd Griphook
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Run the development server**
+   ```bash
+   npm run dev
+   ```
+
+4. **Open your browser**
+   
+   Navigate to [http://localhost:3000](http://localhost:3000) and sign in with your Azure account
+
+#### Option 2: Docker (Recommended for Easy Setup) 🐳
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd Griphook
+   ```
+
+2. **Run with Docker Compose**
+   ```bash
+   docker-compose up -d
+   ```
+
+3. **Access the application**
+   
+   Navigate to [http://localhost:3000](http://localhost:3000) and sign in with your Azure account
+
+**Alternative Docker commands:**
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Build and run manually
+npm run docker:build
+npm run docker:run
+
+# Or pull from registry (when available)
+docker pull yourusername/griphook:latest
+docker run -d -p 3000:3000 yourusername/griphook:latest
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+📖 **For detailed Docker setup instructions, see [DOCKER.md](DOCKER.md)**
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+3. **Configure environment variables**
+   ```bash
+   cp .env.example .env.local
+   ```
 
-## Learn More
+   Edit `.env.local` with your Azure tenant ID:
+   ```env
+   # Azure AD Configuration (uses Azure CLI public client - no app registration needed!)
+   NEXT_PUBLIC_AZURE_TENANT_ID=your-azure-tenant-id-here
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+4. **Run the development server**
+   ```bash
+   npm run dev
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+5. **Open your browser**
+   
+   Navigate to [http://localhost:3000](http://localhost:3000)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Azure Setup
 
-## Deploy on Vercel
+### Required Permissions
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Your Azure identity (Service Principal or Managed Identity) needs the following Key Vault permissions:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Secret permissions**: Get, List, Set, Delete
+- **Optional**: Backup, Restore, Recover, Purge (for advanced operations)
+
+## 🔧 Setup (Simplified!)
+
+### ✅ **No Configuration Required!**
+This application uses the **Azure CLI public client ID** with multi-tenant support, which means:
+- ✅ No need to create a custom Azure AD app registration
+- ✅ No admin consent required in most organizations  
+- ✅ Works out-of-the-box with `http://localhost:3000` redirect URI
+- ✅ Same security and permissions as Azure CLI
+- ✅ Users authenticate with their own Azure tenant automatically
+
+### 📋 **What You Need:**
+1. **Azure Account** - Any valid Azure account with appropriate permissions
+2. **Key Vault Access** - You need RBAC permissions on the Key Vaults you want to manage:
+   - **Key Vault Secrets User** (for read access)
+   - **Key Vault Secrets Officer** (for full secret management)
+
+## 🏗️ Architecture
+
+### Authentication Flow
+- **User Authentication**: Azure AD OAuth with user-delegated permissions
+- **Key Vault Access**: Each user's Azure AD token is used to access Key Vaults
+- **Security**: Users can only access Key Vaults they have permissions to
+
+### Technology Stack
+- **Frontend**: Next.js 15+ with App Router, React, TypeScript
+- **Styling**: Tailwind CSS for responsive design
+- **Azure Integration**: Azure SDK for JavaScript
+- **Authentication**: Azure Active Directory OAuth 2.0
+
+### Performance Features
+- **Optimized Loading**: Secret metadata loads without expensive version history
+- **Batch Operations**: Parallel processing for multiple secret operations
+- **On-Demand Values**: Secret values loaded only when needed
+- **Browser Caching**: Local state caching for improved performance
+
+## 📖 Usage
+
+1. **Sign in** with your Azure AD account
+2. **Select a Key Vault** from your accessible Key Vaults
+3. **Manage Secrets**:
+   - View all secrets in a clean, searchable interface
+   - Click to reveal secret values
+   - Add new secrets with the "Add Secret" button
+   - Edit existing secrets in-place
+   - Delete secrets with confirmation dialogs
+   - Perform batch operations on multiple secrets
+
+## 🔒 Security Features
+
+- **User-Level Access Control**: Each user can only access Key Vaults they have permissions to
+- **No Server-Side Secret Storage**: Secret values are never cached server-side
+- **Browser-Only Caching**: Secure caching in user's browser only
+- **Audit Trails**: All operations are logged under the user's identity
+- **Input Validation**: Comprehensive validation for all user inputs
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 💬 Support
+
+For issues and questions:
+- Check the [Issues](../../issues) page
+- Review Azure Key Vault [documentation](https://docs.microsoft.com/en-us/azure/key-vault/)
+- Consult Azure AD [authentication documentation](https://docs.microsoft.com/en-us/azure/active-directory/develop/)
+
+## 🐳 Docker
+
+Griphook is fully containerized for easy deployment and distribution:
+
+- **Zero Configuration**: `docker-compose up -d` (no Azure config needed!)
+- **Manual Build**: `npm run docker:build && npm run docker:run`
+- **Pull from Registry**: `docker pull yourusername/griphook:latest`
+
+Users authenticate with their own Azure tenant - no pre-configuration required.
+
+See [DOCKER.md](DOCKER.md) for comprehensive Docker setup, deployment, and troubleshooting guide.

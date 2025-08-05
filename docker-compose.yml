@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  griphook:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      # App Configuration
+      - APP_NAME=Griphook
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+      # Optional: Override default Azure CLI client ID if needed
+      # - NEXT_PUBLIC_AZURE_CLIENT_ID=${AZURE_CLIENT_ID:-}
+      # Optional: Override default tenant (not usually needed - users will auth to their own tenant)
+      # - NEXT_PUBLIC_AZURE_TENANT_ID=${AZURE_TENANT_ID:-}
+    volumes:
+      # Optional: Mount local .env file if needed
+      - ./.env.local:/app/.env.local:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "healthcheck.js"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+  # Optional: Add nginx for production reverse proxy
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      # Add SSL certificates if needed
+      # - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - griphook
+    restart: unless-stopped
+    profiles:
+      - production
