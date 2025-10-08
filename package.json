@@ -80,6 +80,9 @@
       "!src",
       "!.git"
     ],
+    "asarUnpack": [
+      ".next/standalone/**/*"
+    ],
     "mac": {
       "category": "public.app-category.developer-tools",
       "target": [

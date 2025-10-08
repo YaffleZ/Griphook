@@ -59,8 +59,25 @@ function createWindow() {
     mainWindow.loadURL(startUrl);
   } else {
     // In production, start the Next.js server
-    const serverPath = path.join(__dirname, '../.next/standalone/server.js');
-    const serverCwd = path.join(__dirname, '../.next/standalone');
+    // In packaged app, we use asarUnpack for the standalone server
+    const isPackaged = app.isPackaged;
+    const appPath = app.getAppPath();
+    
+    // When packaged with asarUnpack, the structure is:
+    // app.asar.unpacked/.next/standalone/server.js
+    const serverPath = isPackaged 
+      ? path.join(process.resourcesPath, 'app.asar.unpacked', '.next', 'standalone', 'server.js')
+      : path.join(__dirname, '../.next/standalone/server.js');
+    
+    const serverCwd = isPackaged
+      ? path.join(process.resourcesPath, 'app.asar.unpacked', '.next', 'standalone')
+      : path.join(__dirname, '../.next/standalone');
+
+    console.log('Server path:', serverPath);
+    console.log('Server cwd:', serverCwd);
+    console.log('Is packaged:', isPackaged);
+    console.log('App path:', appPath);
+    console.log('Resources path:', process.resourcesPath);
 
     try {
       nextServer = fork(serverPath, {
