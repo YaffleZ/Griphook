@@ -59,25 +59,49 @@ function createWindow() {
     mainWindow.loadURL(startUrl);
   } else {
     // In production, start the Next.js server
-    // In packaged app, we use asarUnpack for the standalone server
     const isPackaged = app.isPackaged;
-    const appPath = app.getAppPath();
+    const fs = require('fs');
     
-    // When packaged with asarUnpack, the structure is:
-    // app.asar.unpacked/.next/standalone/server.js
-    const serverPath = isPackaged 
-      ? path.join(process.resourcesPath, 'app.asar.unpacked', '.next', 'standalone', 'server.js')
-      : path.join(__dirname, '../.next/standalone/server.js');
+    let serverPath;
+    let serverCwd;
     
-    const serverCwd = isPackaged
-      ? path.join(process.resourcesPath, 'app.asar.unpacked', '.next', 'standalone')
-      : path.join(__dirname, '../.next/standalone');
+    if (isPackaged) {
+      // Try unpacked location first (for asarUnpack)
+      const unpackedPath = path.join(process.resourcesPath, 'app.asar.unpacked', '.next', 'standalone', 'server.js');
+      const unpackedCwd = path.join(process.resourcesPath, 'app.asar.unpacked', '.next', 'standalone');
+      
+      // Check if unpacked version exists
+      if (fs.existsSync(unpackedPath)) {
+        serverPath = unpackedPath;
+        serverCwd = unpackedCwd;
+        console.log('Using unpacked server');
+      } else {
+        // Fallback to app path if unpacked doesn't exist
+        serverPath = path.join(app.getAppPath(), '.next', 'standalone', 'server.js');
+        serverCwd = path.join(app.getAppPath(), '.next', 'standalone');
+        console.log('Using app path server');
+      }
+    } else {
+      // Development mode
+      serverPath = path.join(__dirname, '../.next/standalone/server.js');
+      serverCwd = path.join(__dirname, '../.next/standalone');
+    }
 
     console.log('Server path:', serverPath);
+    console.log('Server exists:', fs.existsSync(serverPath));
     console.log('Server cwd:', serverCwd);
+    console.log('CWD exists:', fs.existsSync(serverCwd));
     console.log('Is packaged:', isPackaged);
-    console.log('App path:', appPath);
+    console.log('App path:', app.getAppPath());
     console.log('Resources path:', process.resourcesPath);
+
+    if (!fs.existsSync(serverPath)) {
+      const error = `Server file not found!\n\nLooking for: ${serverPath}\n\nApp path: ${app.getAppPath()}\nResources path: ${process.resourcesPath}`;
+      console.error(error);
+      dialog.showErrorBox('Griphook', error);
+      app.quit();
+      return;
+    }
 
     try {
       nextServer = fork(serverPath, {
@@ -90,14 +114,39 @@ function createWindow() {
         stdio: 'pipe'
       });
 
+      // Capture stdout and stderr for debugging
+      let serverOutput = '';
+      let serverError = '';
+      
+      if (nextServer.stdout) {
+        nextServer.stdout.on('data', (data) => {
+          const output = data.toString();
+          console.log('Next.js:', output);
+          serverOutput += output;
+        });
+      }
+      
+      if (nextServer.stderr) {
+        nextServer.stderr.on('data', (data) => {
+          const error = data.toString();
+          console.error('Next.js Error:', error);
+          serverError += error;
+        });
+      }
+
       nextServer.on('error', (error) => {
-        dialog.showErrorBox('Griphook', `Failed to start bundled Next.js server.\n\n${error.message}`);
+        const fullError = `Failed to start bundled Next.js server.\n\nError: ${error.message}\n\nServer Path: ${serverPath}\nServer CWD: ${serverCwd}\n\nStderr:\n${serverError}`;
+        console.error(fullError);
+        dialog.showErrorBox('Griphook', fullError);
       });
 
       nextServer.on('exit', (code, signal) => {
         if (!app.isQuitting) {
           const reason = signal ? `signal ${signal}` : `exit code ${code}`;
-          dialog.showErrorBox('Griphook', `The embedded Next.js server stopped unexpectedly (${reason}). The application will now close.`);
+          const fullError = `The embedded Next.js server stopped unexpectedly (${reason}).\n\nServer Path: ${serverPath}\nServer CWD: ${serverCwd}\n\nLast Output:\n${serverOutput}\n\nErrors:\n${serverError}`;
+          console.error(fullError);
+          dialog.showErrorBox('Griphook', fullError);
+
           app.quit();
         }
       });
