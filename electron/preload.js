@@ -23,7 +23,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Listen to safe channels
   on: (channel, callback) => {
-    const validChannels = ['update-available', 'update-downloaded'];
+    const validChannels = ['update-available', 'update-downloaded', 'oauth-code'];
     if (validChannels.includes(channel)) {
       ipcRenderer.on(channel, callback);
     }
@@ -31,7 +31,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Remove listeners
   removeAllListeners: (channel) => {
-    const validChannels = ['update-available', 'update-downloaded'];
+    const validChannels = ['update-available', 'update-downloaded', 'oauth-code'];
     if (validChannels.includes(channel)) {
       ipcRenderer.removeAllListeners(channel);
     }

@@ -211,23 +211,44 @@ export default function Home() {
           setAuthError(null);
           console.log('Using Electron OAuth flow');
           
-          // Use Electron's OAuth handler
+          // Race between IPC invoke return and an async 'oauth-code' event
+          let handled = false;
+          const storedVerifier = sessionStorage.getItem('pkce_verifier') || undefined;
+          const onOauthCode = async (_event: any, payload: any) => {
+            try {
+              if (handled) return;
+              handled = true;
+              window.electronAPI?.removeAllListeners?.('oauth-code');
+              console.log('oauth-code event received from main process');
+              await handleAuthCallback(payload?.code, payload?.redirectUri, storedVerifier);
+            } finally {
+              setIsLoading(false);
+            }
+          };
+          window.electronAPI.on('oauth-code', onOauthCode);
+
+          // Use Electron's OAuth handler (will also send 'oauth-code' on success)
           const result = await window.electronAPI.invoke('oauth-login', authUrl);
           console.log('oauth-login result:', result);
-          
-          if (result && typeof result === 'object' && 'code' in result) {
-            const storedVerifier = sessionStorage.getItem('pkce_verifier') || undefined;
-            console.log('Proceeding to token exchange with override redirectUri');
-            await handleAuthCallback(result.code, (result as any).redirectUri, storedVerifier);
-          } else if (typeof result === 'string') {
-            const storedVerifier = sessionStorage.getItem('pkce_verifier') || undefined;
-            console.log('Proceeding to token exchange with string code');
-            await handleAuthCallback(result, undefined, storedVerifier);
+
+          if (!handled) {
+            handled = true;
+            window.electronAPI?.removeAllListeners?.('oauth-code');
+            if (result && typeof result === 'object' && 'code' in result) {
+              console.log('Proceeding to token exchange with override redirectUri (invoke result)');
+              await handleAuthCallback((result as any).code, (result as any).redirectUri, storedVerifier);
+            } else if (typeof result === 'string') {
+              console.log('Proceeding to token exchange with string code (invoke result)');
+              await handleAuthCallback(result as any, undefined, storedVerifier);
+            } else {
+              throw new Error('Invalid OAuth result');
+            }
           }
         } catch (error) {
           console.error('Electron OAuth error:', error);
           setAuthError(`Authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         } finally {
+          // isLoading is cleared in the first successful handler; ensure no spinner if we errored
           setIsLoading(false);
         }
       } else {
