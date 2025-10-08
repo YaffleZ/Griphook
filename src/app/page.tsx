@@ -14,6 +14,11 @@ interface KeyVault {
   url: string;
 }
 
+interface SubscriptionInfo {
+  subscriptionId?: string;
+  displayName?: string;
+}
+
 // Get Azure configuration
 const AZURE_CONFIG = (() => {
   try {
@@ -85,6 +90,7 @@ export default function Home() {
   const [isLoadingKeyVault, setIsLoadingKeyVault] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [configError, setConfigError] = useState<string | null>(null);
+  const [subscriptions, setSubscriptions] = useState<SubscriptionInfo[]>([]);
 
   // Check configuration on mount
   useEffect(() => {
@@ -121,6 +127,7 @@ export default function Home() {
     const code = urlParams.get('code');
     const error = urlParams.get('error');
     const errorDescription = urlParams.get('error_description');
+  // const vaultParam = urlParams.get('vault');
 
     if (error) {
       console.error('OAuth error:', error, errorDescription);
@@ -132,9 +139,10 @@ export default function Home() {
     if (code) {
       handleAuthCallback(code);
     } else {
-      const storedToken = localStorage.getItem('azure_access_token');
-      const storedRefreshToken = localStorage.getItem('azure_refresh_token');
-      const storedKeyVaults = localStorage.getItem('azure_key_vaults');
+  const storedToken = localStorage.getItem('azure_access_token');
+  const storedRefreshToken = localStorage.getItem('azure_refresh_token');
+  const storedKeyVaults = localStorage.getItem('azure_key_vaults');
+  const storedSubs = localStorage.getItem('azure_subscriptions');
 
       if (storedToken && storedKeyVaults) {
         try {
@@ -142,9 +150,14 @@ export default function Home() {
           if (storedRefreshToken) {
             setRefreshToken(storedRefreshToken);
           }
+          if (storedSubs) {
+            const parsedSubs = JSON.parse(storedSubs) as SubscriptionInfo[];
+            setSubscriptions(parsedSubs);
+          }
           const parsedKeyVaults = storedKeyVaults ? JSON.parse(storedKeyVaults) : [];
           setKeyVaults(parsedKeyVaults);
           setFilteredKeyVaults(parsedKeyVaults);
+          // Deep-link via URL disabled in reverted flow
           setIsAuthenticated(true);
         } catch (e) {
           console.error('Failed to load stored authentication data:', e);
@@ -281,22 +294,24 @@ export default function Home() {
       const data = await response.json();
       console.log('Token exchange success; updating state');
       
-      // Store token and Key Vaults in localStorage
+      // Store token, subscriptions, and key vaults in localStorage
       localStorage.setItem('azure_access_token', data.token.access_token);
       if (data.token.refresh_token) {
         localStorage.setItem('azure_refresh_token', data.token.refresh_token);
         setRefreshToken(data.token.refresh_token);
       }
-      localStorage.setItem('azure_key_vaults', JSON.stringify(data.keyVaults));
+      localStorage.setItem('azure_subscriptions', JSON.stringify(data.subscriptions || []));
+      localStorage.setItem('azure_key_vaults', JSON.stringify(data.keyVaults || []));
       
       // Set state
       setAccessToken(data.token.access_token);
-      setKeyVaults(data.keyVaults);
-      setFilteredKeyVaults(data.keyVaults);
+      setSubscriptions(data.subscriptions || []);
+      setKeyVaults(data.keyVaults || []);
+      setFilteredKeyVaults(data.keyVaults || []);
       setIsAuthenticated(true);
       
       // Clean up URL
-      window.history.replaceState({}, document.title, window.location.pathname);
+      try { window.history.replaceState({}, document.title, window.location.pathname); } catch {}
     } catch (error) {
       console.error('Failed to handle auth callback:', error);
       setAuthError(error instanceof Error ? error.message : 'Authentication failed');
@@ -431,12 +446,8 @@ export default function Home() {
                 <Shield className="h-12 w-12 text-green-600" />
               </div>
             </div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              Select a Key Vault
-            </h2>
-            <p className="text-lg text-gray-600 mb-8">
-              Choose the Azure Key Vault you want to manage from the list below.
-            </p>
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Select a Key Vault</h2>
+            <p className="text-lg text-gray-600 mb-8">Choose a Key Vault below to view and manage secrets.</p>
             
             {/* Search Box */}
             <div className="max-w-md mx-auto mb-6">
@@ -458,9 +469,7 @@ export default function Home() {
           {isLoading || isLoadingKeyVault ? (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">
-                {isLoadingKeyVault ? 'Preparing Key Vault access...' : 'Loading your Key Vaults...'}
-              </p>
+              <p className="text-gray-600">{isLoadingKeyVault ? 'Preparing Key Vault access...' : 'Finishing sign-in...'}</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -473,7 +482,7 @@ export default function Home() {
                   }
                 </div>
               )}
-              
+
               {filteredKeyVaults.map((vault) => (
                 <div
                   key={vault.id}
@@ -503,24 +512,7 @@ export default function Home() {
               ))}
               
               {keyVaults.length === 0 && (
-                <div className="text-center py-12">
-                  <div className="bg-yellow-100 p-4 rounded-full w-fit mx-auto mb-4">
-                    <Key className="h-8 w-8 text-yellow-600" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    No Key Vaults Found
-                  </h3>
-                  <p className="text-gray-600 mb-4">
-                    You don't have access to any Key Vaults, or they may be in a different subscription.
-                  </p>
-                  <button
-                    onClick={() => window.open('https://portal.azure.com', '_blank')}
-                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
-                  >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Open Azure Portal
-                  </button>
-                </div>
+                <div className="text-center py-12 text-gray-600">No Key Vaults found for your subscriptions.</div>
               )}
             </div>
           )}
@@ -541,12 +533,7 @@ export default function Home() {
                 Azure Key Vault Advanced Editor
               </h1>
             </div>
-            <a
-              href="/demo"
-              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-            >
-              View Demo
-            </a>
+            {/* Demo link removed */}
           </div>
         </div>
       </header>

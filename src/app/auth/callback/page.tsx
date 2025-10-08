@@ -35,12 +35,10 @@ export default function AuthCallback() {
 
         if (inElectron) {
           // In Electron, redirect immediately back into the app path
-          setTimeout(() => {
-            if (typeof window !== 'undefined') {
-              const target = `/${state}`.replace(/\/+/, '/');
-              window.location.href = `${target}?code=${encodeURIComponent(code)}`;
-            }
-          }, 1000);
+          if (typeof window !== 'undefined') {
+            const target = `/${state}`.replace(/\/+/, '/');
+            window.location.href = `${target}?code=${encodeURIComponent(code)}`;
+          }
         } else {
           // In browser, do not auto-redirect; user will switch to app manually
         }

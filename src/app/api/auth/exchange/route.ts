@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { KeyVaultManagementClient } from '@azure/arm-keyvault';
 import { SubscriptionClient } from '@azure/arm-subscriptions';
 import { TokenCredential } from '@azure/identity';
+import { KeyVaultManagementClient } from '@azure/arm-keyvault';
 
 // Custom credential class to use the user's access token
 class UserTokenCredential implements TokenCredential {
@@ -71,76 +71,47 @@ export async function POST(request: NextRequest) {
       console.warn('Could not decode token for debugging:', err);
     }
 
-    // 2. Use the access token to discover Key Vaults
+    // 2. Use the access token to discover subscriptions and enumerate Key Vaults
     const credential = new UserTokenCredential(tokenData.access_token);
-    
+
     try {
       // Get all subscriptions the user has access to
       const subscriptionClient = new SubscriptionClient(credential);
-      const subscriptions = [];
-      
+      const subscriptions: Array<{ subscriptionId?: string; displayName?: string }> = [];
       for await (const subscription of subscriptionClient.subscriptions.list()) {
         subscriptions.push(subscription);
       }
-
       console.log(`Found ${subscriptions.length} subscriptions`);
 
-      // Get Key Vaults from all subscriptions
-      const allKeyVaults = [];
-      
-      for (const subscription of subscriptions) {
-        if (subscription.subscriptionId) {
-          try {
-            const keyVaultClient = new KeyVaultManagementClient(credential, subscription.subscriptionId);
-            
-            for await (const vault of keyVaultClient.vaults.list()) {
-              // Extract resource group from vault ID
-              const resourceGroupMatch = vault.id?.match(/\/resourceGroups\/([^\/]+)\//);
-              const resourceGroup = resourceGroupMatch ? resourceGroupMatch[1] : 'Unknown';
-              
-              allKeyVaults.push({
-                id: vault.id,
-                name: vault.name,
-                resourceGroup: resourceGroup,
-                subscription: subscription.displayName || subscription.subscriptionId,
-                location: vault.location,
-                url: `https://${vault.name}.vault.azure.net/`,
-              });
-            }
-          } catch (subscriptionError) {
-            console.warn(`Failed to get Key Vaults for subscription ${subscription.subscriptionId}:`, subscriptionError);
-            // Continue with other subscriptions
-          }
+      // Enumerate Key Vaults across all subscriptions (optimized: metadata only, no secrets)
+      const keyVaults: Array<{ id: string; name: string; resourceGroup: string; subscription: string; location: string; url: string }> = [];
+      let totalVaults = 0;
+      for (const sub of subscriptions) {
+        const subId = sub.subscriptionId;
+        if (!subId) continue;
+        const kvClient = new KeyVaultManagementClient(credential as any, subId);
+        const vaultsIter = kvClient.vaults.listBySubscription();
+        for await (const v of vaultsIter) {
+          totalVaults++;
+          const rg = (v.id || '').split('/resourceGroups/')[1]?.split('/')[0] || '';
+          keyVaults.push({
+            id: v.id || `${subId}/unknown/${v.name}`,
+            name: v.name || 'unknown',
+            resourceGroup: rg,
+            subscription: sub.displayName || subId,
+            location: v.location || '',
+            url: v.properties?.vaultUri || ''
+          });
         }
       }
+      console.log(`Found ${totalVaults} Key Vaults across all subscriptions`);
 
-      console.log(`Found ${allKeyVaults.length} Key Vaults across all subscriptions`);
-
-      return NextResponse.json({
-        token: tokenData,
-        keyVaults: allKeyVaults,
-      });
+      return NextResponse.json({ token: tokenData, subscriptions, keyVaults });
 
     } catch (azureError) {
       console.error('Failed to query Azure resources:', azureError);
-      
-      // Fall back to mock data if Azure API fails
-      console.log('Falling back to mock data...');
-      const mockKeyVaults = [
-        {
-          id: '/subscriptions/mock-subscription/resourceGroups/demo-rg/providers/Microsoft.KeyVault/vaults/demo-keyvault',
-          name: 'demo-keyvault',
-          resourceGroup: 'demo-rg',
-          subscription: 'Demo Subscription (API call failed)',
-          location: 'East US',
-          url: 'https://demo-keyvault.vault.azure.net/',
-        },
-      ];
-
-      return NextResponse.json({
-        token: tokenData,
-        keyVaults: mockKeyVaults,
-      });
+      // Fall back to returning just the token if discovery fails
+      return NextResponse.json({ token: tokenData, subscriptions: [], keyVaults: [] });
     }
 
   } catch (error) {

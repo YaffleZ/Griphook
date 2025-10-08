@@ -45,6 +45,9 @@ function createWindow() {
     height: 900,
     minWidth: 800,
     minHeight: 600,
+    // Hide the menu bar by default (Windows/Linux)
+    // Users won't see the classic menu; DevTools is opened programmatically in dev
+    autoHideMenuBar: process.platform !== 'darwin',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -216,6 +219,18 @@ function createWindow() {
 
   // Show window when ready to prevent visual flash
   mainWindow.once('ready-to-show', () => {
+    // Remove app menu and hide menubar on Windows/Linux
+    if (process.platform !== 'darwin') {
+      try {
+        Menu.setApplicationMenu(null);
+        if (typeof mainWindow.setMenuBarVisibility === 'function') {
+          mainWindow.setMenuBarVisibility(false);
+        }
+      } catch (e) {
+        console.warn('Unable to hide menu bar:', e);
+      }
+    }
+
     mainWindow.show();
     
     // Open DevTools in development
@@ -262,12 +277,13 @@ function createOAuthCallbackServer() {
         const code = url.searchParams.get('code');
         const error = url.searchParams.get('error');
         
-        // Send response to browser
-        res.writeHead(200, { 'Content-Type': 'text/html' });
+        // Send response to browser (explicit UTF-8 to avoid mojibake like âœ“ for ✓)
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(`
           <!DOCTYPE html>
           <html>
           <head>
+            <meta charset="UTF-8" />
             <title>Authentication Complete</title>
             <style>
               body { font-family: system-ui; text-align: center; padding: 50px; background: #f5f5f5; }
@@ -285,9 +301,9 @@ function createOAuthCallbackServer() {
                  <p>Returning to the app...</p>`
               }
             </div>
-            <script>
-              setTimeout(() => window.close(), 3000);
-            </script>
+              <script>
+              setTimeout(() => window.close(), 800);
+              </script>
           </body>
           </html>
         `);
@@ -357,12 +373,13 @@ ipcMain.handle('oauth-login', async (event, authUrl) => {
           const error = reqUrl.searchParams.get('error');
           console.log('OAuth callback received:', { hasCode: !!code, hasError: !!error });
           
-          // Send response
-          res.writeHead(200, { 'Content-Type': 'text/html' });
+          // Send response (explicit UTF-8 to avoid mojibake)
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
           res.end(`
             <!DOCTYPE html>
             <html>
             <head>
+              <meta charset="UTF-8" />
               <title>Authentication Complete</title>
               <style>
                 body { font-family: system-ui; text-align: center; padding: 50px; background: #f5f5f5; }
@@ -381,7 +398,7 @@ ipcMain.handle('oauth-login', async (event, authUrl) => {
                 }
               </div>
               <script>
-                setTimeout(() => window.close(), 3000);
+                setTimeout(() => window.close(), 800);
               </script>
             </body>
             </html>
