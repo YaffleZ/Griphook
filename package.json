@@ -11,7 +11,10 @@
     "typescript",
     "azure-sdk"
   ],
-  "author": "Your Name",
+  "author": {
+    "name": "Yafeng Zhang",
+    "email": "yzhang@bunnings.com.au"
+  },
   "license": "MIT",
   "main": "electron/main.js",
   "homepage": "./",
