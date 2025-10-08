@@ -20,11 +20,15 @@ Download the latest release for your operating system:
 [![Download for macOS](https://img.shields.io/badge/Download-macOS-black?style=for-the-badge&logo=apple)](https://github.com/YaffleZ/Griphook/releases/latest)
 [![Download for Linux](https://img.shields.io/badge/Download-Linux-orange?style=for-the-badge&logo=linux)](https://github.com/YaffleZ/Griphook/releases/latest)
 
-### Installation
-1. Download the appropriate installer for your OS from the [releases page](https://github.com/YaffleZ/Griphook/releases)
-2. Run the installer (Windows: `.exe` or `.msi`, macOS: `.dmg`, Linux: `.AppImage` or `.deb`)
-3. Launch Griphook and authenticate with your Azure account
-4. Start managing your Azure Key Vault secrets!
+### 🎯 For End Users: Simple Installation
+1. **[Download the installer](https://github.com/YaffleZ/Griphook/releases/latest)** for your operating system
+2. **Run the installer** (Windows: `.exe`, macOS: `.dmg`, Linux: `.AppImage` or `.deb`)
+3. **Launch Griphook** and sign in with your Azure account
+4. **Start managing** your Azure Key Vault secrets!
+
+📖 **Need help?** See the **[Installation Guide](INSTALL.md)** for detailed instructions.
+
+### 🔧 For Developers: Build from Source
 
 ## ✨ Features
 

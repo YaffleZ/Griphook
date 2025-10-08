@@ -3,26 +3,8 @@ import type { NextConfig } from "next";
 const isElectron = process.env.BUILD_TARGET === 'electron';
 
 const nextConfig: NextConfig = {
-  // Dynamic output based on build target
-  output: isElectron ? 'export' : 'standalone',
-  
-  // Base path for static export in Electron
-  ...(isElectron && {
-    basePath: '',
-    assetPrefix: '',
-    trailingSlash: true,
-    images: {
-      unoptimized: true
-    },
-    // Exclude API routes for static export
-    async rewrites() {
-      return {
-        beforeFiles: [],
-        afterFiles: [],
-        fallback: []
-      };
-    }
-  }),
+  // Use standalone for Docker, normal for Electron dev
+  output: isElectron ? undefined : 'standalone',
   
   // Development and production optimizations
   experimental: {

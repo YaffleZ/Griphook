@@ -13,7 +13,7 @@
   ],
   "author": "Your Name",
   "license": "MIT",
-  "main": "public/electron.js",
+  "main": "electron/main.js",
   "homepage": "./",
   "scripts": {
     "dev": "next dev --turbopack",
@@ -24,7 +24,7 @@
     "electron": "electron .",
     "electron-dev": "node scripts/electron-dev.js",
     "electron-build": "npm run export && electron-builder",
-    "build-electron": "npm run export && electron-builder --publish=never",
+    "build-electron": "next build && node scripts/prepare-electron.js && electron-builder",
     "dist": "npm run export && electron-builder --publish=always",
     "docker:build": "docker build -t griphook:latest .",
     "docker:dev": "docker build -f Dockerfile.dev -t griphook:dev .",
@@ -64,16 +64,18 @@
     "wait-on": "^8.0.5"
   },
   "build": {
-    "appId": "com.griphook.app",
+    "appId": "com.griphook.keyvault-editor",
     "productName": "Griphook",
+    "copyright": "Copyright © 2024",
     "directories": {
       "output": "dist"
     },
     "files": [
-      "out/**/*",
+      ".next/standalone/**/*",
       "electron/**/*",
-      "node_modules/**/*",
-      "package.json"
+      "!node_modules",
+      "!src",
+      "!.git"
     ],
     "mac": {
       "category": "public.app-category.developer-tools",
@@ -96,6 +98,7 @@
       "icon": "assets/icon.icns"
     },
     "win": {
+      "sign": false,
       "target": [
         {
           "target": "nsis",

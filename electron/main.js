@@ -1,9 +1,39 @@
 const { app, BrowserWindow, Menu, shell, dialog } = require('electron');
 const path = require('path');
+const { fork } = require('child_process');
+const http = require('http');
 const isDev = process.env.NODE_ENV === 'development';
 
 // Keep a global reference of the window object
 let mainWindow;
+let nextServer;
+
+const port = process.env.PORT || '3000';
+const startUrl = isDev ? `http://localhost:${port}` : `http://127.0.0.1:${port}`;
+const allowedOrigin = new URL(startUrl).origin;
+
+async function waitForServer(url, timeoutMs = 20000) {
+  const startTime = Date.now();
+
+  return new Promise((resolve, reject) => {
+    const check = () => {
+      const request = http.get(url, (res) => {
+        res.destroy();
+        resolve();
+      });
+
+      request.on('error', () => {
+        if (Date.now() - startTime > timeoutMs) {
+          reject(new Error('Timed out waiting for Next.js server to start.'));
+        } else {
+          setTimeout(check, 500);
+        }
+      });
+    };
+
+    check();
+  });
+}
 
 function createWindow() {
   // Create the browser window
@@ -24,12 +54,52 @@ function createWindow() {
     show: false // Don't show until ready
   });
 
-  // Load the app
-  const startUrl = isDev 
-    ? 'http://localhost:3000' 
-    : `file://${path.join(__dirname, '../out/index.html')}`;
-  
-  mainWindow.loadURL(startUrl);
+  if (isDev) {
+    // In development, connect to the existing dev server
+    mainWindow.loadURL(startUrl);
+  } else {
+    // In production, start the Next.js server
+    const serverPath = path.join(__dirname, '../.next/standalone/server.js');
+    const serverCwd = path.join(__dirname, '../.next/standalone');
+
+    try {
+      nextServer = fork(serverPath, {
+        env: {
+          ...process.env,
+          PORT: port,
+          NODE_ENV: 'production'
+        },
+        cwd: serverCwd,
+        stdio: 'pipe'
+      });
+
+      nextServer.on('error', (error) => {
+        dialog.showErrorBox('Griphook', `Failed to start bundled Next.js server.\n\n${error.message}`);
+      });
+
+      nextServer.on('exit', (code, signal) => {
+        if (!app.isQuitting) {
+          const reason = signal ? `signal ${signal}` : `exit code ${code}`;
+          dialog.showErrorBox('Griphook', `The embedded Next.js server stopped unexpectedly (${reason}). The application will now close.`);
+          app.quit();
+        }
+      });
+
+      waitForServer(startUrl)
+        .then(() => {
+          if (mainWindow) {
+            mainWindow.loadURL(startUrl);
+          }
+        })
+        .catch((error) => {
+          dialog.showErrorBox('Griphook', `Timed out waiting for the embedded Next.js server to start.\n\n${error.message}`);
+          app.quit();
+        });
+    } catch (error) {
+      dialog.showErrorBox('Griphook', `Unable to launch embedded Next.js server.\n\n${error.message}`);
+      app.quit();
+    }
+  }
 
   // Show window when ready to prevent visual flash
   mainWindow.once('ready-to-show', () => {
@@ -55,8 +125,8 @@ function createWindow() {
   // Prevent navigation to external sites
   mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
     const parsedUrl = new URL(navigationUrl);
-    
-    if (parsedUrl.origin !== startUrl && !isDev) {
+
+    if (parsedUrl.origin !== allowedOrigin && !isDev) {
       event.preventDefault();
     }
   });
@@ -176,9 +246,22 @@ app.whenReady().then(() => {
 
 // Quit when all windows are closed
 app.on('window-all-closed', () => {
+  // Clean up the Next.js server
+  if (nextServer) {
+    nextServer.kill('SIGTERM');
+  }
+  
   // On macOS, keep app running even when all windows are closed
   if (process.platform !== 'darwin') {
     app.quit();
+  }
+});
+
+app.on('before-quit', () => {
+  app.isQuitting = true;
+  // Clean up the Next.js server
+  if (nextServer) {
+    nextServer.kill('SIGTERM');
   }
 });
 
