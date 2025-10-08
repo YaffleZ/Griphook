@@ -1,6 +1,6 @@
 # Griphook - Azure Key Vault Advanced Secrets Editor
 
-A modern, secure web application for managing Azure Key Vault secrets with advanced features including batch editing, adding new secrets, and deletion capabilities.
+A modern, secure application for managing Azure Key Vault secrets with advanced features including batch editing, adding new secrets, and deletion capabilities. Available as both a web application and native desktop app.
 
 *Named after the goblin vault keeper at Gringotts - your trusted guardian for Azure Key Vault secrets.*
 
@@ -8,6 +8,23 @@ A modern, secure web application for managing Azure Key Vault secrets with advan
 ![Next.js](https://img.shields.io/badge/Next.js-15+-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5+-blue)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-3+-blue)
+![Electron](https://img.shields.io/badge/Electron-Desktop%20App-blue)
+
+## 📥 Download Desktop App
+
+**🖥️ Native Desktop Application Available!**
+
+Download the latest release for your operating system:
+
+[![Download for Windows](https://img.shields.io/badge/Download-Windows-blue?style=for-the-badge&logo=windows)](https://github.com/YaffleZ/Griphook/releases/latest)
+[![Download for macOS](https://img.shields.io/badge/Download-macOS-black?style=for-the-badge&logo=apple)](https://github.com/YaffleZ/Griphook/releases/latest)
+[![Download for Linux](https://img.shields.io/badge/Download-Linux-orange?style=for-the-badge&logo=linux)](https://github.com/YaffleZ/Griphook/releases/latest)
+
+### Installation
+1. Download the appropriate installer for your OS from the [releases page](https://github.com/YaffleZ/Griphook/releases)
+2. Run the installer (Windows: `.exe` or `.msi`, macOS: `.dmg`, Linux: `.AppImage` or `.deb`)
+3. Launch Griphook and authenticate with your Azure account
+4. Start managing your Azure Key Vault secrets!
 
 ## ✨ Features
 
@@ -34,6 +51,13 @@ A modern, secure web application for managing Azure Key Vault secrets with advan
 - **Tailwind CSS**: Clean, modern interface
 - **Loading States**: Clear indicators for ongoing operations
 - **Error Handling**: Comprehensive error messages and recovery guidance
+
+### 🖥️ **Desktop App Benefits**
+- **Native Performance**: Faster startup and better resource management
+- **Offline Capabilities**: Some features work without internet (viewing cached data)
+- **System Integration**: Native notifications, system tray, and OS-specific menus
+- **Auto-Updates**: Seamless updates delivered automatically
+- **Enhanced Security**: Runs in isolated environment with better credential protection
 
 ## 🚀 Getting Started
 
@@ -120,7 +144,48 @@ docker run -d -p 3000:3000 yourusername/griphook:latest
 
 5. **Open your browser**
    
-   Navigate to [http://localhost:3000](http://localhost:3000)
+   Navigate to [http://localhost:3000](http://localhost:3000) and sign in with your Azure account
+
+#### Option 3: Desktop Development
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/YaffleZ/Griphook.git
+   cd Griphook
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   # Also install Electron dependencies
+   npm install --save-dev electron electron-builder concurrently wait-on cross-env
+   ```
+
+3. **Run in development mode**
+   ```bash
+   npm run electron-dev
+   ```
+   This will start the Next.js dev server and launch the Electron app.
+
+4. **Build desktop app**
+   ```bash
+   # For current platform
+   npm run build-electron
+   
+   # For specific platforms
+   npm run electron-build -- --win  # Windows
+   npm run electron-build -- --mac  # macOS  
+   npm run electron-build -- --linux # Linux
+   ```
+
+   **Or use the build scripts:**
+   ```bash
+   # Windows
+   .\scripts\build-desktop.ps1
+   
+   # macOS/Linux
+   ./scripts/build-desktop.sh
+   ```
 
 ## Azure Setup
 
