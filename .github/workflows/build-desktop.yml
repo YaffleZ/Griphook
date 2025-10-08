@@ -84,7 +84,7 @@ jobs:
           draft: false
           prerelease: false
           body: |
-            ## Griphook Desktop v${{ github.ref_name }}
+            ## Griphook Desktop ${{ github.ref_name }}
             
             🖥️ **Native Desktop Application for Azure Key Vault Management**
             
