@@ -52,8 +52,7 @@ jobs:
         with:
           name: griphook-windows
           path: |
-            dist/*.exe
-            dist/*.msi
+            dist/*.zip
 
       - name: Upload artifacts (macOS)
         if: matrix.os == 'macos-latest'
@@ -89,7 +88,7 @@ jobs:
             🖥️ **Native Desktop Application for Azure Key Vault Management**
             
             ### Downloads
-            - **Windows**: `.exe` (installer) or `.msi` (MSI package)
+            - **Windows**: `.zip` (portable archive)
             - **macOS**: `.dmg` (disk image) or `.zip` (portable)
             
             ### Features
@@ -101,7 +100,7 @@ jobs:
             
             ### Installation
             1. Download the appropriate file for your OS
-            2. Run the installer or extract the portable version
+            2. Extract the archive (Windows ZIP or macOS ZIP) or mount the DMG on macOS
             3. Launch Griphook and authenticate with your Azure account
             4. Start managing your Azure Key Vault secrets!
             

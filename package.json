@@ -110,18 +110,6 @@
       "sign": false,
       "target": [
         {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "portable",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
           "target": "zip",
           "arch": [
             "x64"
@@ -131,18 +119,7 @@
       "icon": "assets/icon.ico"
     },
     
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "perMachine": false,
-      "runAfterFinish": true,
-      "differentialPackage": false
-    },
-    "portable": {
-      "artifactName": "Griphook-${version}-portable.exe"
-    },
+    
     "publish": {
       "provider": "github",
       "owner": "YaffleZ",
