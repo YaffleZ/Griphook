@@ -1,38 +1,86 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Key, CheckCircle } from 'lucide-react';
+import { Key, CheckCircle, ExternalLink } from 'lucide-react';
 
 export default function AuthCallback() {
   const [isRedirecting, setIsRedirecting] = useState(true);
+  const [isElectron, setIsElectron] = useState(false);
 
   useEffect(() => {
-    // Get the authorization code from URL parameters
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    const error = urlParams.get('error');
-    const state = urlParams.get('state');
+    try {
+      // Check if running in Electron (guard navigator access)
+      const ua = typeof navigator !== 'undefined' ? navigator.userAgent.toLowerCase() : '';
+      const inElectron = ua.includes('electron');
+      setIsElectron(inElectron);
 
-    if (error) {
-      console.error('OAuth error:', error);
-      // Redirect back to home with error
-      window.location.href = `/?error=${encodeURIComponent(error)}`;
-      return;
-    }
+      // Get the authorization code from URL parameters (guard window access)
+  const search = typeof window !== 'undefined' ? window.location.search : '';
+      const urlParams = new URLSearchParams(search);
+      const code = urlParams.get('code');
+      const error = urlParams.get('error');
+      const state = urlParams.get('state') || '';
 
-    if (code) {
-      // Show success message before redirect
+      if (error) {
+        console.error('OAuth error:', error);
+        if (typeof window !== 'undefined') {
+          window.location.href = `/?error=${encodeURIComponent(error)}`;
+        }
+        return;
+      }
+
+      if (code) {
+        // Show success message before redirect
+        setIsRedirecting(false);
+
+        if (inElectron) {
+          // In Electron, redirect immediately back into the app path
+          setTimeout(() => {
+            if (typeof window !== 'undefined') {
+              const target = `/${state}`.replace(/\/+/, '/');
+              window.location.href = `${target}?code=${encodeURIComponent(code)}`;
+            }
+          }, 1000);
+        } else {
+          // In browser, do not auto-redirect; user will switch to app manually
+        }
+      } else {
+        // No code or error, redirect to home
+        if (typeof window !== 'undefined') {
+          window.location.href = '/';
+        }
+      }
+    } catch (e) {
+      console.error('Auth callback processing error:', e);
+      // Stop spinner and show success card so user can manually return
       setIsRedirecting(false);
-      
-      // Redirect back to home with the authorization code after a short delay
-      setTimeout(() => {
-        window.location.href = `/${state || ''}?code=${encodeURIComponent(code)}`;
-      }, 1500);
-    } else {
-      // No code or error, redirect to home
-      window.location.href = '/';
     }
   }, []);
+
+  const handleReturnToApp = () => {
+    try {
+      const search = typeof window !== 'undefined' ? window.location.search : '';
+      const urlParams = new URLSearchParams(search);
+      const code = urlParams.get('code');
+      const state = urlParams.get('state') || '';
+
+      if (code) {
+        const returnUrl = `http://localhost:3000/${state}`.replace(/\/+/, '/') + `?code=${encodeURIComponent(code)}`;
+        if (typeof navigator !== 'undefined' && navigator.clipboard && 'writeText' in navigator.clipboard) {
+          navigator.clipboard.writeText(returnUrl).catch(() => {/* ignore */});
+        }
+        try {
+          if (typeof window !== 'undefined') {
+            window.open(returnUrl, '_blank');
+          }
+        } catch {
+          // ignore
+        }
+      }
+    } catch (e) {
+      console.error('Failed to construct return URL:', e);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -65,15 +113,42 @@ export default function AuthCallback() {
               Authentication Successful!
             </h2>
             <p className="text-gray-600 mb-4">
-              You have been successfully authenticated.
+              You have been successfully authenticated with Azure.
             </p>
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-              <p className="text-green-800 font-medium">
-                ✓ Returning to Griphook app...
-              </p>
-            </div>
-            <p className="text-sm text-gray-500">
-              You can close this browser tab if it doesn't close automatically.
+            
+            {isElectron ? (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                <p className="text-green-800 font-medium">
+                  Returning to the app...
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <p className="text-blue-900 font-semibold mb-3">
+                    📱 Please return to the Griphook app
+                  </p>
+                  <ol className="text-left text-sm text-blue-800 space-y-2 mb-4">
+                    <li>1. Switch back to the Griphook desktop application</li>
+                    <li>2. The app should automatically detect your authentication</li>
+                    <li>3. Close this browser tab</li>
+                  </ol>
+                  <button
+                    onClick={handleReturnToApp}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Open in New Tab (if app doesn't respond)
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  If the app doesn't respond, click the button above to manually complete authentication.
+                </p>
+              </>
+            )}
+            
+            <p className="text-sm text-gray-500 mt-4">
+              You can safely close this browser tab.
             </p>
           </>
         )}

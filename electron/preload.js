@@ -15,7 +15,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Safe IPC communication (if needed in the future)
   invoke: (channel, ...args) => {
     // Whitelist allowed channels
-    const validChannels = ['app-version', 'check-updates'];
+    const validChannels = ['app-version', 'check-updates', 'oauth-login'];
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, ...args);
     }

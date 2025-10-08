@@ -1,12 +1,14 @@
-const { app, BrowserWindow, Menu, shell, dialog } = require('electron');
+const { app, BrowserWindow, Menu, shell, dialog, ipcMain } = require('electron');
 const path = require('path');
 const { fork } = require('child_process');
 const http = require('http');
+const { URL } = require('url');
 const isDev = process.env.NODE_ENV === 'development';
 
 // Keep a global reference of the window object
 let mainWindow;
 let nextServer;
+let oauthCallbackServer;
 
 const port = process.env.PORT || '3000';
 const startUrl = `http://localhost:${port}`; // Always use localhost for OAuth redirect URI compatibility
@@ -47,7 +49,8 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       enableRemoteModule: false,
-      webSecurity: true
+      webSecurity: true,
+      preload: path.join(__dirname, 'preload.js')
     },
     icon: path.join(__dirname, 'assets/icon.png'),
     title: 'Griphook - Azure Key Vault Advanced Editor',
@@ -87,6 +90,40 @@ function createWindow() {
     console.log('App path:', app.getAppPath());
     console.log('Resources path:', process.resourcesPath);
 
+    // Ensure static and public assets exist when running un-packaged in production mode
+    if (!isPackaged) {
+      try {
+        const projectRoot = path.join(__dirname, '..');
+        const srcStatic = path.join(projectRoot, '.next', 'static');
+        const destStatic = path.join(serverCwd, '.next', 'static');
+        const srcPublic = path.join(projectRoot, 'public');
+        const destPublic = path.join(serverCwd, 'public');
+
+        if (fs.existsSync(srcStatic)) {
+          if (!fs.existsSync(destStatic)) {
+            console.log('Copying .next/static to standalone...');
+            fs.mkdirSync(path.dirname(destStatic), { recursive: true });
+            fs.cpSync(srcStatic, destStatic, { recursive: true });
+            console.log('✓ Copied .next/static');
+          }
+        } else {
+          console.warn('Warning: source .next/static not found, CSS/JS may not load');
+        }
+
+        if (fs.existsSync(srcPublic)) {
+          if (!fs.existsSync(destPublic)) {
+            console.log('Copying public to standalone...');
+            fs.cpSync(srcPublic, destPublic, { recursive: true });
+            console.log('✓ Copied public');
+          }
+        } else {
+          console.warn('Warning: public folder not found');
+        }
+      } catch (copyErr) {
+        console.warn('Asset copy step failed:', copyErr);
+      }
+    }
+
     if (!fs.existsSync(serverPath)) {
       const error = `Server file not found!\n\nLooking for: ${serverPath}\n\nApp path: ${app.getAppPath()}\nResources path: ${process.resourcesPath}`;
       console.error(error);
@@ -115,6 +152,17 @@ function createWindow() {
           const output = data.toString();
           console.log('Next.js:', output);
           serverOutput += output;
+          
+          // Check if authentication completed
+          if (output.includes('Access token received successfully') || output.includes('Found') && output.includes('Key Vaults')) {
+            // OAuth callback detected! Focus the main window
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              console.log('Authentication detected, focusing window...');
+              if (mainWindow.isMinimized()) mainWindow.restore();
+              mainWindow.focus();
+              mainWindow.show();
+            }
+          }
         });
       }
       
@@ -202,6 +250,182 @@ function createWindow() {
     shell.openExternal(navigationUrl);
   });
 }
+
+// OAuth callback server for native app authentication
+function createOAuthCallbackServer() {
+  return new Promise((resolve, reject) => {
+    const server = http.createServer((req, res) => {
+      const url = new URL(req.url, `http://localhost`);
+      
+      // Handle root path for loopback redirect (no path to satisfy AAD loopback rules)
+      if (url.pathname === '/' || url.pathname === '') {
+        const code = url.searchParams.get('code');
+        const error = url.searchParams.get('error');
+        
+        // Send response to browser
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Authentication Complete</title>
+            <style>
+              body { font-family: system-ui; text-align: center; padding: 50px; background: #f5f5f5; }
+              .success { color: #28a745; }
+              .error { color: #dc3545; }
+              .container { max-width: 400px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              ${error ? 
+                `<h2 class="error">Authentication Failed</h2><p>Error: ${error}</p>` :
+                `<h2 class="success">Authentication Successful!</h2>
+                 <p>You can now close this browser window.</p>
+                 <p>Returning to the app...</p>`
+              }
+            </div>
+            <script>
+              setTimeout(() => window.close(), 3000);
+            </script>
+          </body>
+          </html>
+        `);
+        
+        // Close server and resolve with result
+        server.close();
+        if (error) {
+          reject(new Error(error));
+        } else {
+          resolve(code);
+        }
+        
+        // Focus main window
+        if (mainWindow) {
+          mainWindow.focus();
+          mainWindow.show();
+        }
+      } else {
+        res.writeHead(404);
+        res.end('Not Found');
+      }
+    });
+    
+    // Listen on random available port
+    server.listen(0, 'localhost', () => {
+      const address = server.address();
+      console.log(`OAuth callback server listening on http://localhost:${address.port}`);
+      // Store server for external access
+      server.port = address.port;
+      resolve(server);
+    });
+    
+    server.on('error', reject);
+  });
+}
+
+// Handle OAuth authentication
+ipcMain.handle('oauth-login', async (event, authUrl) => {
+  try {
+    // Create callback server on random port
+    const server = await createOAuthCallbackServer();
+    const callbackPort = server.port;
+    
+    // Modify auth URL to use our callback server
+    const url = new URL(authUrl);
+    // Use loopback redirect without a path to avoid redirect URI mismatches
+    const callbackRedirectUri = `http://localhost:${callbackPort}`;
+    url.searchParams.set('redirect_uri', callbackRedirectUri);
+    
+    console.log('Opening OAuth URL:', url.toString());
+    console.log('Callback server on port:', callbackPort);
+    
+    // Open browser
+    shell.openExternal(url.toString());
+    
+    // Wait for callback - the server will resolve/reject this promise
+    return new Promise((resolve, reject) => {
+      // Override the server request handler to emit events
+      const originalHandler = server.listeners('request')[0];
+      server.removeAllListeners('request');
+      
+      server.on('request', (req, res) => {
+        const reqUrl = new URL(req.url, `http://localhost`);
+        
+        if (reqUrl.pathname === '/' || reqUrl.pathname === '') {
+          const code = reqUrl.searchParams.get('code');
+          const error = reqUrl.searchParams.get('error');
+          console.log('OAuth callback received:', { hasCode: !!code, hasError: !!error });
+          
+          // Send response
+          res.writeHead(200, { 'Content-Type': 'text/html' });
+          res.end(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <title>Authentication Complete</title>
+              <style>
+                body { font-family: system-ui; text-align: center; padding: 50px; background: #f5f5f5; }
+                .success { color: #28a745; }
+                .error { color: #dc3545; }
+                .container { max-width: 400px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                ${error ? 
+                  `<h2 class="error">Authentication Failed</h2><p>Error: ${error}</p>` :
+                  `<h2 class="success">Authentication Successful!</h2>
+                   <p>✓ You can now close this browser window.</p>
+                   <p>Returning to Griphook app...</p>`
+                }
+              </div>
+              <script>
+                setTimeout(() => window.close(), 3000);
+              </script>
+            </body>
+            </html>
+          `);
+          
+          // Close server and resolve/reject
+          server.close();
+          
+          if (error) {
+            console.error('OAuth error returned to loopback:', error);
+            reject(new Error(error));
+          } else {
+            console.log('Resolving oauth-login with code to renderer');
+            // Return both the code and the exact redirectUri used
+            try {
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('oauth-code', { code, redirectUri: callbackRedirectUri });
+              }
+            } catch (sendErr) {
+              console.warn('Failed to notify renderer via oauth-code event:', sendErr);
+            }
+            resolve({ code, redirectUri: callbackRedirectUri });
+          }
+          
+          // Focus main window
+          if (mainWindow) {
+            mainWindow.focus();
+            mainWindow.show();
+          }
+        } else {
+          res.writeHead(404);
+          res.end('Not Found');
+        }
+      });
+      
+      // Handle server errors
+      server.on('error', reject);
+    });
+    
+  } catch (error) {
+    console.error('OAuth error:', error);
+    throw error;
+  }
+});
 
 // Create application menu
 function createMenu() {

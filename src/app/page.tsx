@@ -5,33 +5,6 @@ import { Key, Shield, ExternalLink, ChevronRight, Search } from 'lucide-react';
 import KeyVaultEditor from '@/components/KeyVaultEditor';
 import { getAzureConfig, validateAzureConfig } from '../config/azure';
 
-// Get Azure configuration
-const AZURE_CONFIG = (() => {
-  try {
-    const fullConfig = getAzureConfig();
-    const validation = validateAzureConfig(fullConfig);
-    
-    if (!validation.isValid) {
-      console.error('Azure configuration validation failed:', validation.errors);
-      // In development, we might want to show these errors to the developer
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('Azure configuration errors:', validation.errors);
-      }
-    }
-    
-    return fullConfig.auth;
-  } catch (error) {
-    console.error('Failed to load Azure configuration:', error);
-    // Return a minimal config that will show an error to the user
-    return {
-      clientId: '',
-      tenantId: '',
-      redirectUri: '',
-      scope: '',
-    };
-  }
-})();
-
 interface KeyVault {
   id: string;
   name: string;
@@ -41,7 +14,65 @@ interface KeyVault {
   url: string;
 }
 
+// Get Azure configuration
+const AZURE_CONFIG = (() => {
+  try {
+    const fullConfig = getAzureConfig();
+    const validation = validateAzureConfig(fullConfig);
+
+    if (!validation.isValid) {
+      console.error('Azure configuration validation failed:', validation.errors);
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Azure configuration errors:', validation.errors);
+      }
+    }
+
+    return fullConfig.auth;
+  } catch (error) {
+    console.error('Failed to load Azure configuration:', error);
+    return {
+      clientId: '',
+      tenantId: '',
+      redirectUri: typeof window !== 'undefined' ? window.location.origin : '',
+      scope: '',
+    };
+  }
+})();
+
 export default function Home() {
+  // PKCE helpers (client-side only)
+  const base64UrlEncode = (arrayBuffer: ArrayBuffer): string => {
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const base64 = typeof btoa !== 'undefined' ? btoa(binary) : '';
+    return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  };
+
+  const generateCodeVerifier = (): string => {
+    const length = 64; // between 43 and 128
+    const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+    const values = new Uint32Array(length);
+    if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
+      window.crypto.getRandomValues(values);
+    } else {
+      for (let i = 0; i < values.length; i++) values[i] = Math.floor(Math.random() * 4294967296);
+    }
+    let verifier = '';
+    for (let i = 0; i < length; i++) {
+      verifier += charset[values[i] % charset.length];
+    }
+    return verifier;
+  };
+
+  const deriveCodeChallenge = async (verifier: string): Promise<string> => {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(verifier);
+    const digest = await window.crypto.subtle.digest('SHA-256', data);
+    return base64UrlEncode(digest);
+  };
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [keyVaults, setKeyVaults] = useState<KeyVault[]>([]);
   const [filteredKeyVaults, setFilteredKeyVaults] = useState<KeyVault[]>([]);
@@ -57,14 +88,30 @@ export default function Home() {
 
   // Check configuration on mount
   useEffect(() => {
+    console.log('Component mounting...');
     try {
       const fullConfig = getAzureConfig();
       const validation = validateAzureConfig(fullConfig);
       if (!validation.isValid) {
         setConfigError(`Configuration validation failed: ${validation.errors.join(', ')}`);
       }
+      console.log('Configuration check complete');
     } catch (error) {
+      console.error('Configuration error during mount:', error);
       setConfigError(`Configuration error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }, []);
+
+  // Debug: Log Electron API availability
+  useEffect(() => {
+    console.log('Checking Electron API availability...');
+    console.log('typeof window:', typeof window);
+    console.log('window.electronAPI:', typeof window !== 'undefined' ? window.electronAPI : 'window undefined');
+    if (typeof window !== 'undefined' && window.electronAPI) {
+      console.log('Electron API detected:', {
+        platform: window.electronAPI.platform,
+        versions: window.electronAPI.versions
+      });
     }
   }, []);
 
@@ -74,37 +121,33 @@ export default function Home() {
     const code = urlParams.get('code');
     const error = urlParams.get('error');
     const errorDescription = urlParams.get('error_description');
-    
+
     if (error) {
-      // Handle OAuth errors
       console.error('OAuth error:', error, errorDescription);
       setAuthError(`Authentication failed: ${errorDescription || error}`);
-      // Clean up URL
       window.history.replaceState({}, document.title, window.location.pathname);
       return;
     }
-    
+
     if (code) {
       handleAuthCallback(code);
     } else {
-      // Check if we have a stored token and Key Vaults
       const storedToken = localStorage.getItem('azure_access_token');
       const storedRefreshToken = localStorage.getItem('azure_refresh_token');
       const storedKeyVaults = localStorage.getItem('azure_key_vaults');
-      
+
       if (storedToken && storedKeyVaults) {
         try {
           setAccessToken(storedToken);
           if (storedRefreshToken) {
             setRefreshToken(storedRefreshToken);
           }
-          const parsedKeyVaults = JSON.parse(storedKeyVaults);
+          const parsedKeyVaults = storedKeyVaults ? JSON.parse(storedKeyVaults) : [];
           setKeyVaults(parsedKeyVaults);
           setFilteredKeyVaults(parsedKeyVaults);
           setIsAuthenticated(true);
-        } catch (error) {
-          console.error('Failed to restore session:', error);
-          // Clear invalid data
+        } catch (e) {
+          console.error('Failed to load stored authentication data:', e);
           localStorage.removeItem('azure_access_token');
           localStorage.removeItem('azure_refresh_token');
           localStorage.removeItem('azure_key_vaults');
@@ -128,22 +171,93 @@ export default function Home() {
     }
   }, [keyVaults, searchTerm]);
 
-  const initiateAzureLogin = () => {
-    const authUrl = `https://login.microsoftonline.com/${AZURE_CONFIG.tenantId}/oauth2/v2.0/authorize?` +
-      `client_id=${AZURE_CONFIG.clientId}&` +
-      `response_type=code&` +
-      `redirect_uri=${encodeURIComponent(AZURE_CONFIG.redirectUri)}&` +
-      `scope=${encodeURIComponent(AZURE_CONFIG.scope)}&` +
-      `response_mode=query&` +
-      `prompt=select_account&` +
-      `state=${encodeURIComponent(window.location.pathname)}`;
-    
-    window.location.href = authUrl;
+  const initiateAzureLogin = async () => {
+    try {
+      // Check if we're in Electron
+      const isElectron = typeof window !== 'undefined' && window.electronAPI;
+      
+      // Generate PKCE values
+      const codeVerifier = generateCodeVerifier();
+      const codeChallenge = await deriveCodeChallenge(codeVerifier);
+      sessionStorage.setItem('pkce_verifier', codeVerifier);
+      
+      const authUrl = `https://login.microsoftonline.com/${AZURE_CONFIG.tenantId}/oauth2/v2.0/authorize?` +
+        `client_id=${AZURE_CONFIG.clientId}&` +
+        `response_type=code&` +
+        `redirect_uri=${encodeURIComponent(AZURE_CONFIG.redirectUri)}&` +
+        `scope=${encodeURIComponent(AZURE_CONFIG.scope)}&` +
+        `code_challenge=${encodeURIComponent(codeChallenge)}&` +
+        `code_challenge_method=S256&` +
+        `response_mode=query&` +
+        `prompt=select_account&` +
+        `state=${encodeURIComponent(window.location.pathname)}`;
+      
+      if (isElectron && window.electronAPI) {
+        try {
+          setIsLoading(true);
+          setAuthError(null);
+          console.log('Using Electron OAuth flow');
+          
+          // Use Electron's OAuth handler
+          const result = await window.electronAPI.invoke('oauth-login', authUrl);
+          console.log('oauth-login result:', result);
+          
+          if (result && typeof result === 'object' && 'code' in result) {
+            const storedVerifier = sessionStorage.getItem('pkce_verifier') || undefined;
+            console.log('Proceeding to token exchange with override redirectUri');
+            await handleAuthCallback(result.code, (result as any).redirectUri, storedVerifier);
+          } else if (typeof result === 'string') {
+            const storedVerifier = sessionStorage.getItem('pkce_verifier') || undefined;
+            console.log('Proceeding to token exchange with string code');
+            await handleAuthCallback(result, undefined, storedVerifier);
+          }
+        } catch (error) {
+          console.error('Electron OAuth error:', error);
+          setAuthError(`Authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        } finally {
+          setIsLoading(false);
+        }
+      } else {
+        console.log('Using browser OAuth flow');
+        // Browser flow - mark that we're waiting for auth (for polling)
+        sessionStorage.setItem('awaiting_auth', 'true');
+        window.location.href = authUrl;
+      }
+    } catch (error) {
+      console.error('Error in initiateAzureLogin:', error);
+      setAuthError(`Login error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   };
 
-  const handleAuthCallback = async (code: string) => {
+  // Poll for authentication when waiting
+  useEffect(() => {
+    if (isAuthenticated) return;
+    
+    const checkAuth = () => {
+      const awaitingAuth = sessionStorage.getItem('awaiting_auth');
+      if (!awaitingAuth) return;
+      
+      // Check if tokens appeared in localStorage
+      const token = localStorage.getItem('azure_access_token');
+      const vaults = localStorage.getItem('azure_key_vaults');
+      
+      if (token && vaults) {
+        // Auth completed in browser, reload the page
+        sessionStorage.removeItem('awaiting_auth');
+        window.location.reload();
+      }
+    };
+    
+    // Check every 2 seconds
+    const interval = setInterval(checkAuth, 2000);
+    
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
+
+  const handleAuthCallback = async (code: string, overrideRedirectUri?: string, codeVerifier?: string) => {
     setIsLoading(true);
     try {
+      console.log('Starting token exchange', { codePresent: !!code, overrideRedirectUri, codeVerifierPresent: !!codeVerifier });
       // Exchange authorization code for access token and Key Vault list
       const response = await fetch('/api/auth/exchange', {
         method: 'POST',
@@ -151,15 +265,21 @@ export default function Home() {
         body: JSON.stringify({
           code,
           clientId: AZURE_CONFIG.clientId,
-          redirectUri: AZURE_CONFIG.redirectUri,
+          // Use the exact redirectUri used during Electron OAuth if provided
+          redirectUri: overrideRedirectUri || AZURE_CONFIG.redirectUri,
+          tenantId: AZURE_CONFIG.tenantId,
+          code_verifier: codeVerifier || sessionStorage.getItem('pkce_verifier') || undefined,
         }),
       });
 
       if (!response.ok) {
+        const details = await response.text().catch(() => '');
+        console.error('Token exchange failed', response.status, details);
         throw new Error('Failed to exchange authorization code');
       }
 
       const data = await response.json();
+      console.log('Token exchange success; updating state');
       
       // Store token and Key Vaults in localStorage
       localStorage.setItem('azure_access_token', data.token.access_token);
@@ -181,37 +301,12 @@ export default function Home() {
       console.error('Failed to handle auth callback:', error);
       setAuthError(error instanceof Error ? error.message : 'Authentication failed');
     } finally {
+      try { sessionStorage.removeItem('pkce_verifier'); } catch {}
       setIsLoading(false);
     }
   };
 
-  const refreshKeyVaults = async () => {
-    if (!accessToken) return;
-    
-    setIsLoading(true);
-    try {
-      // Re-exchange the token to get fresh Key Vault list
-      const response = await fetch('/api/auth/exchange', {
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          refreshToken: true,
-          token: accessToken
-        })
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setKeyVaults(data.keyVaults);
-        setFilteredKeyVaults(data.keyVaults);
-        localStorage.setItem('azure_key_vaults', JSON.stringify(data.keyVaults));
-      }
-    } catch (error) {
-      console.error('Failed to refresh Key Vaults:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // refreshKeyVaults was unused; removed to satisfy linter
 
   const signOut = () => {
     localStorage.removeItem('azure_access_token');

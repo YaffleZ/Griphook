@@ -17,22 +17,29 @@ class UserTokenCredential implements TokenCredential {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { code, clientId, redirectUri } = body;
+  const body = await request.json();
+  const { code, clientId, redirectUri, code_verifier, tenantId } = body;
 
     console.log('Exchanging authorization code for access token...');
 
     // 1. Exchange authorization code for access token
-    const tokenResponse = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+    const tokenTenant = tenantId && typeof tenantId === 'string' && tenantId.length > 0 ? tenantId : 'common';
+    const tokenUrl = `https://login.microsoftonline.com/${tokenTenant}/oauth2/v2.0/token`;
+    const params = new URLSearchParams({
+      client_id: clientId,
+      code: code,
+      redirect_uri: redirectUri,
+      grant_type: 'authorization_code',
+      scope: 'https://management.azure.com/user_impersonation offline_access',
+    });
+    if (code_verifier) {
+      params.set('code_verifier', code_verifier);
+    }
+
+    const tokenResponse = await fetch(tokenUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: clientId,
-        code: code,
-        redirect_uri: redirectUri,
-        grant_type: 'authorization_code',
-        scope: 'https://management.azure.com/user_impersonation offline_access',
-      }),
+      body: params,
     });
 
     if (!tokenResponse.ok) {

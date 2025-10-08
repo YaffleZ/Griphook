@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Key, AlertCircle, CheckCircle } from 'lucide-react';
 
 export default function DemoPage() {
@@ -185,13 +186,13 @@ export default function DemoPage() {
 
           {/* Navigation */}
           <div className="text-center">
-            <a
+            <Link
               href="/"
               className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Key className="h-5 w-5 mr-2" />
               Go to Key Vault Editor
-            </a>
+            </Link>
           </div>
         </div>
       </main>
