@@ -66,21 +66,11 @@ function createWindow() {
     let serverCwd;
     
     if (isPackaged) {
-      // Try unpacked location first (for asarUnpack)
-      const unpackedPath = path.join(process.resourcesPath, 'app.asar.unpacked', '.next', 'standalone', 'server.js');
-      const unpackedCwd = path.join(process.resourcesPath, 'app.asar.unpacked', '.next', 'standalone');
-      
-      // Check if unpacked version exists
-      if (fs.existsSync(unpackedPath)) {
-        serverPath = unpackedPath;
-        serverCwd = unpackedCwd;
-        console.log('Using unpacked server');
-      } else {
-        // Fallback to app path if unpacked doesn't exist
-        serverPath = path.join(app.getAppPath(), '.next', 'standalone', 'server.js');
-        serverCwd = path.join(app.getAppPath(), '.next', 'standalone');
-        console.log('Using app path server');
-      }
+      // When packaged, standalone is in extraResources/standalone
+      // This is outside the asar and has proper node_modules for module resolution
+      serverPath = path.join(process.resourcesPath, 'standalone', 'server.js');
+      serverCwd = path.join(process.resourcesPath, 'standalone');
+      console.log('Using extraResources standalone server');
     } else {
       // Development mode
       serverPath = path.join(__dirname, '../.next/standalone/server.js');

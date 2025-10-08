@@ -74,14 +74,17 @@
       "output": "dist"
     },
     "files": [
-      ".next/standalone/**/*",
       "electron/**/*",
       "!node_modules",
       "!src",
-      "!.git"
+      "!.git",
+      "!.next"
     ],
-    "asarUnpack": [
-      ".next/standalone/**/*"
+    "extraResources": [
+      {
+        "from": ".next/standalone",
+        "to": "standalone"
+      }
     ],
     "mac": {
       "category": "public.app-category.developer-tools",
