@@ -146,7 +146,13 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "perMachine": false,
+      "runAfterFinish": true,
+      "differentialPackage": false
+    },
+    "portable": {
+      "artifactName": "Griphook-${version}-portable.exe"
     },
     "publish": {
       "provider": "github",

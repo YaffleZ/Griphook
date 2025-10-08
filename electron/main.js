@@ -9,24 +9,25 @@ let mainWindow;
 let nextServer;
 
 const port = process.env.PORT || '3000';
-const startUrl = isDev ? `http://localhost:${port}` : `http://127.0.0.1:${port}`;
+const startUrl = `http://localhost:${port}`; // Always use localhost for OAuth redirect URI compatibility
 const allowedOrigin = new URL(startUrl).origin;
 
-async function waitForServer(url, timeoutMs = 20000) {
+async function waitForServer(url, timeoutMs = 30000) {
   const startTime = Date.now();
 
   return new Promise((resolve, reject) => {
     const check = () => {
       const request = http.get(url, (res) => {
         res.destroy();
+        console.log(`Server ready after ${Date.now() - startTime}ms`);
         resolve();
       });
 
       request.on('error', () => {
         if (Date.now() - startTime > timeoutMs) {
-          reject(new Error('Timed out waiting for Next.js server to start.'));
+          reject(new Error(`Timed out waiting for Next.js server to start after ${timeoutMs}ms.`));
         } else {
-          setTimeout(check, 500);
+          setTimeout(check, 200); // Check every 200ms instead of 500ms
         }
       });
     };
@@ -48,10 +49,11 @@ function createWindow() {
       enableRemoteModule: false,
       webSecurity: true
     },
-    icon: path.join(__dirname, 'assets/icon.png'), // We'll create this
+    icon: path.join(__dirname, 'assets/icon.png'),
     title: 'Griphook - Azure Key Vault Advanced Editor',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
-    show: false // Don't show until ready
+    show: false, // Don't show until ready
+    backgroundColor: '#1e293b' // Match the app's dark theme
   });
 
   if (isDev) {
@@ -141,9 +143,16 @@ function createWindow() {
         }
       });
 
+      // Show window early with loading message
+      if (mainWindow) {
+        mainWindow.setTitle('Griphook - Starting server...');
+        mainWindow.show();
+      }
+
       waitForServer(startUrl)
         .then(() => {
           if (mainWindow) {
+            mainWindow.setTitle('Griphook - Azure Key Vault Advanced Editor');
             mainWindow.loadURL(startUrl);
           }
         })
