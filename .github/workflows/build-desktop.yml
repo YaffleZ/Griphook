@@ -13,7 +13,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        os: [windows-latest, macos-latest]
     
     runs-on: ${{ matrix.os }}
     
@@ -44,11 +44,7 @@ jobs:
           # For code signing (optional)
           # CSC_IDENTITY_AUTO_DISCOVERY: false
 
-      - name: Build Electron app (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: npm run build-electron -- --linux
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Linux build removed
 
       - name: Upload artifacts (Windows)
         if: matrix.os == 'windows-latest'
@@ -68,14 +64,7 @@ jobs:
             dist/*.dmg
             dist/*.zip
 
-      - name: Upload artifacts (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: griphook-linux
-          path: |
-            dist/*.AppImage
-            dist/*.deb
+      # Linux artifact upload removed
 
   release:
     needs: build
@@ -92,7 +81,6 @@ jobs:
           files: |
             griphook-windows/*
             griphook-macos/*
-            griphook-linux/*
           draft: false
           prerelease: false
           body: |
@@ -103,7 +91,6 @@ jobs:
             ### Downloads
             - **Windows**: `.exe` (installer) or `.msi` (MSI package)
             - **macOS**: `.dmg` (disk image) or `.zip` (portable)
-            - **Linux**: `.AppImage` (portable) or `.deb` (Debian package)
             
             ### Features
             - 🔐 Azure Key Vault secret management
@@ -119,7 +106,7 @@ jobs:
             4. Start managing your Azure Key Vault secrets!
             
             ### System Requirements
-            - Windows 10/11, macOS 10.14+, or Linux (Ubuntu 18.04+)
+            - Windows 10/11 or macOS 10.14+
             - Internet connection for Azure authentication
             - Azure subscription with Key Vault access
         env:
