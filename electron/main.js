@@ -178,13 +178,19 @@ function createWindow() {
     return { action: 'deny' };
   });
 
-  // Prevent navigation to external sites
+  // Handle navigation - open Azure OAuth in external browser
   mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
     const parsedUrl = new URL(navigationUrl);
 
-    if (parsedUrl.origin !== allowedOrigin && !isDev) {
-      event.preventDefault();
+    // Allow navigation within the app
+    if (parsedUrl.origin === allowedOrigin || isDev) {
+      return;
     }
+
+    // Open Azure OAuth and other external URLs in system browser
+    event.preventDefault();
+    console.log('Opening external URL:', navigationUrl);
+    shell.openExternal(navigationUrl);
   });
 }
 
