@@ -34,7 +34,10 @@ export default function AuthCallback() {
         setIsRedirecting(false);
 
         if (inElectron) {
-          // In Electron, add a brief delay to avoid redirect races/loops
+          // In Electron, we don't need to redirect - the app will handle the code directly
+          console.log('Running in Electron, authentication handled by main process');
+        } else {
+          // In browser, add a brief delay to avoid redirect races/loops
           if (typeof window !== 'undefined') {
             const target = `/${state}`.replace(/\/+/, '/');
             const href = `${target}?code=${encodeURIComponent(code)}`;
@@ -43,8 +46,6 @@ export default function AuthCallback() {
               try { window.location.href = href; } catch {}
             }, delayMs);
           }
-        } else {
-          // In browser, do not auto-redirect; user will switch to app manually
         }
       } else {
         // No code or error, redirect to home

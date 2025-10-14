@@ -416,17 +416,18 @@ ipcMain.handle('oauth-login', async (event, authUrl) => {
             try {
               if (mainWindow && !mainWindow.isDestroyed()) {
                 mainWindow.webContents.send('oauth-code', { code, redirectUri: callbackRedirectUri });
+                // Focus and show the main window with a small delay to ensure it's ready
+                setTimeout(() => {
+                  if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.focus();
+                    mainWindow.show();
+                  }
+                }, 100);
               }
             } catch (sendErr) {
               console.warn('Failed to notify renderer via oauth-code event:', sendErr);
             }
             resolve({ code, redirectUri: callbackRedirectUri });
-          }
-          
-          // Focus main window
-          if (mainWindow) {
-            mainWindow.focus();
-            mainWindow.show();
           }
         } else {
           res.writeHead(404);

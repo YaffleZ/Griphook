@@ -91,6 +91,9 @@ export default function Home() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [configError, setConfigError] = useState<string | null>(null);
   const [subscriptions, setSubscriptions] = useState<SubscriptionInfo[]>([]);
+  const [selectedSubscriptions, setSelectedSubscriptions] = useState<string[]>([]);
+  const [loadingProgress, setLoadingProgress] = useState<{message: string, percent: number} | null>(null);
+  const [showSubscriptionSelection, setShowSubscriptionSelection] = useState(false);
 
   // Check configuration on mount
   useEffect(() => {
@@ -208,48 +211,60 @@ export default function Home() {
       if (isElectron && window.electronAPI) {
         try {
           setIsLoading(true);
+          setLoadingProgress({message: 'Starting Azure authentication process...', percent: 5});
           setAuthError(null);
           console.log('Using Electron OAuth flow');
           
-          // Race between IPC invoke return and an async 'oauth-code' event
-          let handled = false;
+          // Use a Promise to handle both the IPC invoke return and the 'oauth-code' event
           const storedVerifier = sessionStorage.getItem('pkce_verifier') || undefined;
-          const onOauthCode = async (_event: any, payload: any) => {
-            try {
-              if (handled) return;
-              handled = true;
-              window.electronAPI?.removeAllListeners?.('oauth-code');
+          
+          // Create a promise that resolves when we get the OAuth code
+          const oauthCodePromise = new Promise((resolve, reject) => {
+            const onOauthCode = (event: any, payload: any) => {
               console.log('oauth-code event received from main process');
-              await handleAuthCallback(payload?.code, payload?.redirectUri, storedVerifier);
-            } finally {
-              setIsLoading(false);
+              if (window.electronAPI?.removeAllListeners) {
+                window.electronAPI.removeAllListeners('oauth-code');
+              }
+              resolve(payload);
+            };
+            
+            if (window.electronAPI?.on) {
+              window.electronAPI.on('oauth-code', onOauthCode);
             }
-          };
-          window.electronAPI.on('oauth-code', onOauthCode);
-
-          // Use Electron's OAuth handler (will also send 'oauth-code' on success)
-          const result = await window.electronAPI.invoke('oauth-login', authUrl);
-          console.log('oauth-login result:', result);
-
-          if (!handled) {
-            handled = true;
-            window.electronAPI?.removeAllListeners?.('oauth-code');
-            if (result && typeof result === 'object' && 'code' in result) {
-              console.log('Proceeding to token exchange with override redirectUri (invoke result)');
-              await handleAuthCallback((result as any).code, (result as any).redirectUri, storedVerifier);
-            } else if (typeof result === 'string') {
-              console.log('Proceeding to token exchange with string code (invoke result)');
-              await handleAuthCallback(result as any, undefined, storedVerifier);
-            } else {
-              throw new Error('Invalid OAuth result');
-            }
+            
+            // Set a timeout to prevent hanging
+            setTimeout(() => {
+              if (window.electronAPI?.removeAllListeners) {
+                window.electronAPI.removeAllListeners('oauth-code');
+              }
+              reject(new Error('OAuth timeout'));
+            }, 120000); // 2 minutes timeout
+          });
+          
+          // Start the OAuth flow
+          setLoadingProgress({message: 'Redirecting to Azure for authentication...', percent: 15});
+          if (window.electronAPI?.invoke) {
+            window.electronAPI.invoke('oauth-login', authUrl).catch(error => {
+              console.error('OAuth invoke error:', error);
+              // This is just for the invoke call, we still wait for the oauth-code event
+            });
           }
+          
+          // Wait for the OAuth code from the event
+          const payload: any = await oauthCodePromise;
+          console.log('Proceeding to token exchange with code from event');
+          setLoadingProgress({message: 'Received authentication response from Azure, processing...', percent: 25});
+          await handleAuthCallback(payload.code, payload.redirectUri, storedVerifier);
         } catch (error) {
           console.error('Electron OAuth error:', error);
           setAuthError(`Authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         } finally {
-          // isLoading is cleared in the first successful handler; ensure no spinner if we errored
+          // Ensure we always clean up listeners and stop loading
+          if (window.electronAPI?.removeAllListeners) {
+            window.electronAPI.removeAllListeners('oauth-code');
+          }
           setIsLoading(false);
+          setLoadingProgress(null);
         }
       } else {
         console.log('Using browser OAuth flow');
@@ -289,10 +304,27 @@ export default function Home() {
   }, [isAuthenticated]);
 
   const handleAuthCallback = async (code: string, overrideRedirectUri?: string, codeVerifier?: string) => {
+    console.log('handleAuthCallback called');
     setIsLoading(true);
+    setLoadingProgress({message: 'Processing Azure authentication response...', percent: 10});
     try {
       console.log('Starting token exchange', { codePresent: !!code, overrideRedirectUri, codeVerifierPresent: !!codeVerifier });
       // Exchange authorization code for access token and Key Vault list
+      await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for smoother animation
+      setLoadingProgress({message: 'Exchanging authorization code for access token...', percent: 30});
+      
+      // Simulate progress while waiting for the API response
+      let progressPercent = 30;
+      const progressInterval = setInterval(() => {
+        if (progressPercent < 45) {
+          progressPercent += 1;
+          setLoadingProgress({
+            message: 'Exchanging authorization code for access token...', 
+            percent: progressPercent
+          });
+        }
+      }, 100);
+      
       const response = await fetch('/api/auth/exchange', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -305,6 +337,9 @@ export default function Home() {
           code_verifier: codeVerifier || sessionStorage.getItem('pkce_verifier') || undefined,
         }),
       });
+      
+      // Clear the progress interval
+      clearInterval(progressInterval);
 
       if (!response.ok) {
         const details = await response.text().catch(() => '');
@@ -312,8 +347,48 @@ export default function Home() {
         throw new Error('Failed to exchange authorization code');
       }
 
+      await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for smoother animation
+      setLoadingProgress({message: 'Discovering your Azure subscriptions...', percent: 50});
+      
+      // Simulate progress while waiting for the API response
+      progressPercent = 50;
+      const discoveryInterval = setInterval(() => {
+        if (progressPercent < 90) {
+          progressPercent += 1;
+          setLoadingProgress({
+            message: 'Discovering your Azure subscriptions and Key Vaults...', 
+            percent: progressPercent
+          });
+        }
+      }, 200);
+      
       const data = await response.json();
       console.log('Token exchange success; updating state');
+      console.log('API Response Data:', data);
+      
+      // Clear the progress interval
+      clearInterval(discoveryInterval);
+      
+      // Get the number of subscriptions and key vaults
+      const dataSubscriptionsCount = (data.subscriptions || []).length;
+      const dataKeyVaultsCount = (data.keyVaults || []).length;
+      console.log('Data subscriptions:', data.subscriptions);
+      console.log('Data subscriptions count:', dataSubscriptionsCount);
+      console.log('Data key vaults count:', dataKeyVaultsCount);
+      
+      // Update progress with subscription info
+      if (dataSubscriptionsCount > 0) {
+        setLoadingProgress({message: `Found ${dataSubscriptionsCount} subscription${dataSubscriptionsCount !== 1 ? 's' : ''}, scanning for Key Vaults...`, percent: 92});
+        
+        // Add a small delay to show the subscription count message
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        // Show a message indicating we're processing Key Vaults
+        setLoadingProgress({message: `Processing Key Vaults from ${dataSubscriptionsCount} subscription${dataSubscriptionsCount !== 1 ? 's' : ''}...`, percent: 95});
+        
+        // Add a small delay to show the processing message
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
       
       // Store token, subscriptions, and key vaults in localStorage
       localStorage.setItem('azure_access_token', data.token.access_token);
@@ -327,9 +402,19 @@ export default function Home() {
       // Set state
       setAccessToken(data.token.access_token);
       setSubscriptions(data.subscriptions || []);
-      setKeyVaults(data.keyVaults || []);
-      setFilteredKeyVaults(data.keyVaults || []);
-      setIsAuthenticated(true);
+      setKeyVaults([]);
+      setFilteredKeyVaults([]);
+      console.log('Subscriptions state set:', data.subscriptions || []);
+      
+      // Show subscription selection if user has many subscriptions
+      console.log('Subscription count:', dataSubscriptionsCount);
+      if (dataSubscriptionsCount > 10) {
+        console.log('Showing subscription selection screen');
+        setShowSubscriptionSelection(true);
+      } else {
+        console.log('Showing main interface directly');
+        setIsAuthenticated(true);
+      }
       
       // Clean up URL
       try { window.history.replaceState({}, document.title, window.location.pathname); } catch {}
@@ -339,6 +424,7 @@ export default function Home() {
     } finally {
       try { sessionStorage.removeItem('pkce_verifier'); } catch {}
       setIsLoading(false);
+      setLoadingProgress(null);
     }
   };
 
@@ -394,7 +480,266 @@ export default function Home() {
     setIsLoadingKeyVault(false);
   };
 
-  // Show Key Vault Editor if a vault is selected
+  const handleSubscriptionSelection = async () => {
+    // Load Key Vaults for selected subscriptions
+    if (selectedSubscriptions.length > 0) {
+      setIsLoading(true);
+      setLoadingProgress({message: 'Loading Key Vaults from selected subscriptions...', percent: 0});
+      
+      try {
+        // Get subscription IDs for the selected subscriptions
+        const selectedSubscriptionIds = selectedSubscriptions
+          .map(subName => {
+            const sub = subscriptions.find(s => s.displayName === subName || s.subscriptionId === subName);
+            return sub?.subscriptionId;
+          })
+          .filter((id): id is string => id !== undefined)
+          .sort(); // Sort for consistent caching
+        
+        console.log('Loading Key Vaults for subscriptions:', selectedSubscriptionIds);
+        
+        // Check if we have cached data for these subscriptions
+        const cacheKey = `keyVaults_${selectedSubscriptionIds.join('_')}`;
+        const cachedData = localStorage.getItem(cacheKey);
+        if (cachedData) {
+          try {
+            const parsedData = JSON.parse(cachedData);
+            // Check if cache is still valid (less than 5 minutes old)
+            if (Date.now() - parsedData.timestamp < 5 * 60 * 1000) {
+              console.log('Using cached Key Vaults data');
+              setLoadingProgress({message: `Loaded ${parsedData.keyVaults.length} Key Vault${parsedData.keyVaults.length !== 1 ? 's' : ''} from cache`, percent: 100});
+              
+              // Update state with cached Key Vaults
+              setKeyVaults(parsedData.keyVaults);
+              setFilteredKeyVaults(parsedData.keyVaults);
+              localStorage.setItem('azure_key_vaults', JSON.stringify(parsedData.keyVaults));
+              
+              // Add a small delay to show the completion message
+              await new Promise(resolve => setTimeout(resolve, 300));
+              setIsLoading(false);
+              setLoadingProgress(null);
+              setShowSubscriptionSelection(false);
+              setIsAuthenticated(true);
+              return;
+            }
+          } catch (e) {
+            console.warn('Failed to parse cached data:', e);
+          }
+        }
+        
+        // Simulate progress while loading Key Vaults
+        let progressPercent = 0;
+        const progressInterval = setInterval(() => {
+          if (progressPercent < 95) {
+            progressPercent += 2; // Faster progress updates
+            setLoadingProgress({
+              message: `Loading Key Vaults from ${selectedSubscriptionIds.length} subscription${selectedSubscriptionIds.length !== 1 ? 's' : ''}...`, 
+              percent: progressPercent
+            });
+          }
+        }, 100); // Faster updates
+        
+        const response = await fetch('/api/keyvault/load-selected', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            accessToken: accessToken,
+            subscriptionIds: selectedSubscriptionIds
+          }),
+        });
+        
+        clearInterval(progressInterval);
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.details || 'Failed to load Key Vaults');
+        }
+        
+        const data = await response.json();
+        const loadedKeyVaults = data.keyVaults || [];
+        
+        console.log(`Loaded ${loadedKeyVaults.length} Key Vaults`);
+        setLoadingProgress({message: `Loaded ${loadedKeyVaults.length} Key Vault${loadedKeyVaults.length !== 1 ? 's' : ''}`, percent: 100});
+        
+        // Cache the data
+        const cacheData = {
+          keyVaults: loadedKeyVaults,
+          timestamp: Date.now()
+        };
+        localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+        
+        // Update state with loaded Key Vaults
+        setKeyVaults(loadedKeyVaults);
+        setFilteredKeyVaults(loadedKeyVaults);
+        localStorage.setItem('azure_key_vaults', JSON.stringify(loadedKeyVaults));
+        
+        // Add a small delay to show the completion message
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+      } catch (error) {
+        console.error('Failed to load Key Vaults:', error);
+        setAuthError(error instanceof Error ? error.message : 'Failed to load Key Vaults');
+      } finally {
+        setIsLoading(false);
+        setLoadingProgress(null);
+      }
+    }
+    
+    setShowSubscriptionSelection(false);
+    setIsAuthenticated(true);
+  };
+
+  const toggleSubscription = (subscriptionName: string) => {
+    setSelectedSubscriptions(prev => 
+      prev.includes(subscriptionName) 
+        ? prev.filter(name => name !== subscriptionName)
+        : [...prev, subscriptionName]
+    );
+  };
+
+  const selectAllSubscriptions = () => {
+    const allSubscriptionNames = subscriptions
+      .map(sub => sub.displayName || sub.subscriptionId || '')
+      .filter(name => name !== '');
+    setSelectedSubscriptions(allSubscriptionNames);
+  };
+
+  const clearSubscriptionSelection = () => {
+    setSelectedSubscriptions([]);
+  };
+
+  // Show subscription selection if needed
+  if (showSubscriptionSelection) {
+    console.log('Rendering subscription selection screen');
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        <header className="bg-white shadow-sm border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-6">
+              <div className="flex items-center">
+                <Key className="h-8 w-8 text-blue-600 mr-3" />
+                <h1 className="text-2xl font-bold text-gray-900">
+                  Azure Key Vault Advanced Editor
+                </h1>
+              </div>
+              <button
+                onClick={signOut}
+                className="text-gray-600 hover:text-gray-800 text-sm font-medium"
+              >
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </header>
+        
+        <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          {isLoading && loadingProgress ? (
+            <div className="text-center py-12">
+              <div className="space-y-4">
+                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                  <div 
+                    className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out" 
+                    style={{ width: `${loadingProgress.percent}%` }}
+                  ></div>
+                </div>
+                <p className="text-gray-600">{loadingProgress.message}</p>
+                <p className="text-sm text-gray-500">{loadingProgress.percent}% complete</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="text-center mb-8">
+                <div className="flex justify-center mb-6">
+                  <div className="bg-blue-100 p-4 rounded-full">
+                    <Shield className="h-12 w-12 text-blue-600" />
+                  </div>
+                </div>
+                <h2 className="text-3xl font-bold text-gray-900 mb-4">Select Subscriptions</h2>
+                <p className="text-lg text-gray-600 mb-8">
+                  You have access to {subscriptions.length} subscriptions. Select the ones you want to view Key Vaults from.
+                </p>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-medium text-gray-900">Your Azure Subscriptions</h3>
+                  <div className="space-x-2">
+                    <button
+                      onClick={selectAllSubscriptions}
+                      className="text-sm text-blue-600 hover:text-blue-800"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      onClick={clearSubscriptionSelection}
+                      className="text-sm text-gray-600 hover:text-gray-800"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {subscriptions.map((subscription) => (
+                    <div 
+                      key={subscription.subscriptionId || subscription.displayName} 
+                      className={`flex items-center p-4 rounded-lg border cursor-pointer transition-colors ${
+                        selectedSubscriptions.includes(subscription.displayName || subscription.subscriptionId || '') 
+                          ? 'bg-blue-50 border-blue-200' 
+                          : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                      }`}
+                      onClick={() => {
+                        const subName = subscription.displayName || subscription.subscriptionId || '';
+                        toggleSubscription(subName);
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedSubscriptions.includes(subscription.displayName || subscription.subscriptionId || '')}
+                        onChange={() => {
+                          const subName = subscription.displayName || subscription.subscriptionId || '';
+                          toggleSubscription(subName);
+                        }}
+                        className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+                      />
+                      <div className="ml-3 flex-1">
+                        <div className="text-sm font-medium text-gray-900">
+                          {subscription.displayName || subscription.subscriptionId}
+                        </div>
+                        {subscription.subscriptionId && subscription.displayName !== subscription.subscriptionId && (
+                          <div className="text-xs text-gray-500">
+                            {subscription.subscriptionId}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="mt-6 flex justify-end">
+                  <button
+                    onClick={handleSubscriptionSelection}
+                    disabled={selectedSubscriptions.length === 0}
+                    className={`px-6 py-2 rounded-md text-sm font-medium ${
+                      selectedSubscriptions.length === 0
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
+                  >
+                    Continue with {selectedSubscriptions.length} subscription{selectedSubscriptions.length !== 1 ? 's' : ''}
+                  </button>
+                </div>
+              </div>
+              
+              <div className="text-center text-sm text-gray-500">
+                <p>You can change your subscription selection later in the settings.</p>
+              </div>
+            </>
+          )}
+        </main>
+      </div>
+    );
+  }
   if (selectedKeyVault) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -468,7 +813,19 @@ export default function Home() {
               </div>
             </div>
             <h2 className="text-3xl font-bold text-gray-900 mb-4">Select a Key Vault</h2>
-            <p className="text-lg text-gray-600 mb-8">Choose a Key Vault below to view and manage secrets.</p>
+            <p className="text-lg text-gray-600 mb-4">Choose a Key Vault below to view and manage secrets.</p>
+            
+            {selectedSubscriptions.length > 0 && selectedSubscriptions.length < subscriptions.length && (
+              <p className="text-sm text-gray-500 mb-4">
+                Showing Key Vaults from {selectedSubscriptions.length} of {subscriptions.length} subscriptions. 
+                <button 
+                  onClick={() => setShowSubscriptionSelection(true)}
+                  className="text-blue-600 hover:text-blue-800 ml-1"
+                >
+                  Change selection
+                </button>
+              </p>
+            )}
             
             {/* Search Box */}
             <div className="max-w-md mx-auto mb-6">
@@ -487,10 +844,27 @@ export default function Home() {
             </div>
           </div>
 
-          {isLoading || isLoadingKeyVault ? (
+          {isLoading || isLoadingKeyVault || loadingProgress ? (
             <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">{isLoadingKeyVault ? 'Preparing Key Vault access...' : 'Finishing sign-in...'}</p>
+              {loadingProgress ? (
+                <div className="space-y-4">
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div 
+                      className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out" 
+                      style={{ width: `${loadingProgress.percent}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-gray-600">{loadingProgress.message}</p>
+                  <p className="text-sm text-gray-500">{loadingProgress.percent}% complete</p>
+                </div>
+              ) : (
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              )}
+              <p className="text-gray-600">
+                {isLoadingKeyVault ? 'Preparing Key Vault access...' : 
+                 loadingProgress ? loadingProgress.message : 
+                 'Finishing sign-in...'}
+              </p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -631,8 +1005,23 @@ export default function Home() {
           
           {isLoading ? (
             <div className="flex flex-col items-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-              <p className="text-gray-600">Redirecting to Azure...</p>
+              {loadingProgress ? (
+                <div className="w-full max-w-md space-y-4">
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div 
+                      className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out" 
+                      style={{ width: `${loadingProgress.percent}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-gray-600 text-center">{loadingProgress.message}</p>
+                  <p className="text-sm text-gray-500 text-center">{loadingProgress.percent}% complete</p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+                  <p className="text-gray-600">Initializing...</p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-6">

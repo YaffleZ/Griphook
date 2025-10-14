@@ -71,11 +71,12 @@ export async function POST(request: NextRequest) {
       console.warn('Could not decode token for debugging:', err);
     }
 
-    // 2. Use the access token to discover subscriptions and enumerate Key Vaults
+    // 2. Use the access token to discover subscriptions only
     const credential = new UserTokenCredential(tokenData.access_token);
 
     try {
       // Get all subscriptions the user has access to
+      console.log('Fetching subscriptions...');
       const subscriptionClient = new SubscriptionClient(credential);
       const subscriptions: Array<{ subscriptionId?: string; displayName?: string }> = [];
       for await (const subscription of subscriptionClient.subscriptions.list()) {
@@ -83,34 +84,12 @@ export async function POST(request: NextRequest) {
       }
       console.log(`Found ${subscriptions.length} subscriptions`);
 
-      // Enumerate Key Vaults across all subscriptions (optimized: metadata only, no secrets)
-      const keyVaults: Array<{ id: string; name: string; resourceGroup: string; subscription: string; location: string; url: string }> = [];
-      let totalVaults = 0;
-      for (const sub of subscriptions) {
-        const subId = sub.subscriptionId;
-        if (!subId) continue;
-        const kvClient = new KeyVaultManagementClient(credential as any, subId);
-        const vaultsIter = kvClient.vaults.listBySubscription();
-        for await (const v of vaultsIter) {
-          totalVaults++;
-          const rg = (v.id || '').split('/resourceGroups/')[1]?.split('/')[0] || '';
-          keyVaults.push({
-            id: v.id || `${subId}/unknown/${v.name}`,
-            name: v.name || 'unknown',
-            resourceGroup: rg,
-            subscription: sub.displayName || subId,
-            location: v.location || '',
-            url: v.properties?.vaultUri || ''
-          });
-        }
-      }
-      console.log(`Found ${totalVaults} Key Vaults across all subscriptions`);
-
-      return NextResponse.json({ token: tokenData, subscriptions, keyVaults });
+      // Return token and subscriptions only - Key Vaults will be loaded separately
+      return NextResponse.json({ token: tokenData, subscriptions, keyVaults: [] });
 
     } catch (azureError) {
       console.error('Failed to query Azure resources:', azureError);
-      // Fall back to returning just the token if discovery fails
+      // Fall back to returning just the token and empty subscriptions if discovery fails
       return NextResponse.json({ token: tokenData, subscriptions: [], keyVaults: [] });
     }
 
