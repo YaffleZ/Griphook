@@ -184,28 +184,6 @@ const nextConfig: NextConfig = {
 };
 ```
 
-## 🎨 Icons and Branding
-
-### Required Icon Files
-
-Create these icons in the `assets/` folder:
-
-- `assets/icon.ico` - Windows icon (multi-size ICO)
-- `assets/icon.icns` - macOS icon (ICNS format)
-- `assets/icon.png` - Linux icon (512x512 PNG)
-
-### Icon Creation Tools
-
-```bash
-# Option 1: electron-icon-maker
-npm install -g electron-icon-maker
-electron-icon-maker --input=assets/icon-source.png --output=assets/
-
-# Option 2: Use online converters
-# - convertio.co for ICO files
-# - cloudconvert.com for ICNS files
-```
-
 ## 🔒 Code Signing (Optional)
 
 ### Windows Code Signing
@@ -238,38 +216,7 @@ electron-icon-maker --input=assets/icon-source.png --output=assets/
 
 ## 🚨 Troubleshooting
 
-### Common Issues
 
-#### 1. Build Failures
-```bash
-# Clear caches and reinstall
-rm -rf node_modules package-lock.json out dist
-npm install
-```
-
-#### 2. Icon Issues
-- Ensure icon files exist in correct formats
-- Check file paths in build configuration
-- Use proper icon sizes (see assets/README.md)
-
-#### 3. Windows Build Issues
-- Install Visual Studio Build Tools
-- Run in elevated PowerShell if needed
-- Check Windows Defender / antivirus blocking
-
-#### 4. macOS Build Issues  
-- Install Xcode Command Line Tools: `xcode-select --install`
-- For notarization, set up Apple ID in environment variables
-
-#### 5. Linux Build Issues
-- Install build dependencies: `sudo apt install build-essential`
-- For AppImage: `sudo apt install fuse`
-
-### Debug Mode
-
-Run with debug output:
-```bash
-DEBUG=electron-builder npm run electron-build
 ```
 
 ## 📖 Additional Resources

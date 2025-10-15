@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Key, Shield, ExternalLink, ChevronRight, Search } from 'lucide-react';
 import KeyVaultEditor from '@/components/KeyVaultEditor';
 import { getAzureConfig, validateAzureConfig } from '../config/azure';
+import { AzureSecureStorage } from '@/utils/secureStorage';
 
 interface KeyVault {
   id: string;
@@ -142,35 +143,47 @@ export default function Home() {
     if (code) {
       handleAuthCallback(code);
     } else {
-  const storedToken = localStorage.getItem('azure_access_token');
-  const storedRefreshToken = localStorage.getItem('azure_refresh_token');
-  const storedKeyVaults = localStorage.getItem('azure_key_vaults');
-  const storedSubs = localStorage.getItem('azure_subscriptions');
-
-      if (storedToken && storedKeyVaults) {
-        try {
-          setAccessToken(storedToken);
-          if (storedRefreshToken) {
-            setRefreshToken(storedRefreshToken);
-          }
-          if (storedSubs) {
-            const parsedSubs = JSON.parse(storedSubs) as SubscriptionInfo[];
-            setSubscriptions(parsedSubs);
-          }
-          const parsedKeyVaults = storedKeyVaults ? JSON.parse(storedKeyVaults) : [];
-          setKeyVaults(parsedKeyVaults);
-          setFilteredKeyVaults(parsedKeyVaults);
-          // Deep-link via URL disabled in reverted flow
-          setIsAuthenticated(true);
-        } catch (e) {
-          console.error('Failed to load stored authentication data:', e);
-          localStorage.removeItem('azure_access_token');
-          localStorage.removeItem('azure_refresh_token');
-          localStorage.removeItem('azure_key_vaults');
-        }
-      }
+      // Load stored authentication data with automatic migration
+      loadStoredAuthData();
     }
   }, []);
+
+  // Function to load stored auth data with migration support
+  const loadStoredAuthData = async () => {
+    try {
+      // First, attempt migration from plain storage if needed
+      await AzureSecureStorage.migrateFromPlainStorage();
+      
+      // Then load from encrypted storage
+      const storedToken = await AzureSecureStorage.getAccessToken();
+      const storedRefreshToken = await AzureSecureStorage.getRefreshToken();
+      const storedKeyVaults = await AzureSecureStorage.getKeyVaults();
+      const storedSubs = await AzureSecureStorage.getSubscriptions();
+
+      if (storedToken && storedKeyVaults) {
+        console.log('Loading authentication data from encrypted storage');
+        setAccessToken(storedToken);
+        if (storedRefreshToken) {
+          setRefreshToken(storedRefreshToken);
+        }
+        if (storedSubs) {
+          setSubscriptions(storedSubs);
+        }
+        setKeyVaults(storedKeyVaults);
+        setFilteredKeyVaults(storedKeyVaults);
+        setIsAuthenticated(true);
+      }
+    } catch (e) {
+      console.error('Failed to load stored authentication data:', e);
+      // Clear all data on error
+      AzureSecureStorage.clearAllAzureData();
+      // Also clear any remaining plain storage as fallback
+      localStorage.removeItem('azure_access_token');
+      localStorage.removeItem('azure_refresh_token');
+      localStorage.removeItem('azure_key_vaults');
+      localStorage.removeItem('azure_subscriptions');
+    }
+  };
 
   // Filter Key Vaults based on search term
   useEffect(() => {
@@ -282,16 +295,15 @@ export default function Home() {
   useEffect(() => {
     if (isAuthenticated) return;
     
-    const checkAuth = () => {
+    const checkAuth = async () => {
       const awaitingAuth = sessionStorage.getItem('awaiting_auth');
       if (!awaitingAuth) return;
       
-      // Check if tokens appeared in localStorage
-      const token = localStorage.getItem('azure_access_token');
-      const vaults = localStorage.getItem('azure_key_vaults');
+      // Check if tokens appeared in encrypted storage or localStorage (for migration)
+      const hasAuthData = await AzureSecureStorage.hasAnyAuthData();
       
-      if (token && vaults) {
-        // Auth completed in browser, reload the page
+      if (hasAuthData) {
+        // Auth completed in browser, reload the page to trigger migration and load
         sessionStorage.removeItem('awaiting_auth');
         window.location.reload();
       }
@@ -390,14 +402,16 @@ export default function Home() {
         await new Promise(resolve => setTimeout(resolve, 300));
       }
       
-      // Store token, subscriptions, and key vaults in localStorage
-      localStorage.setItem('azure_access_token', data.token.access_token);
+      // Store token, subscriptions, and key vaults in encrypted storage
+      console.log('Storing authentication data in encrypted storage...');
+      await AzureSecureStorage.setAccessToken(data.token.access_token);
       if (data.token.refresh_token) {
-        localStorage.setItem('azure_refresh_token', data.token.refresh_token);
+        await AzureSecureStorage.setRefreshToken(data.token.refresh_token);
         setRefreshToken(data.token.refresh_token);
       }
-      localStorage.setItem('azure_subscriptions', JSON.stringify(data.subscriptions || []));
-      localStorage.setItem('azure_key_vaults', JSON.stringify(data.keyVaults || []));
+      await AzureSecureStorage.setSubscriptions(data.subscriptions || []);
+      await AzureSecureStorage.setKeyVaults(data.keyVaults || []);
+      console.log('Authentication data stored securely');
       
       // Set state
       setAccessToken(data.token.access_token);
@@ -431,9 +445,14 @@ export default function Home() {
   // refreshKeyVaults was unused; removed to satisfy linter
 
   const signOut = () => {
+    // Clear encrypted storage
+    AzureSecureStorage.clearAllAzureData();
+    // Clear any remaining plain storage as fallback
     localStorage.removeItem('azure_access_token');
     localStorage.removeItem('azure_refresh_token');
     localStorage.removeItem('azure_key_vaults');
+    localStorage.removeItem('azure_subscriptions');
+    
     setAccessToken(null);
     setRefreshToken(null);
     setKeyVaultToken(null);

@@ -1,6 +1,6 @@
 {
   "name": "griphook",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Griphook - Your trusted Azure Key Vault secrets guardian. A modern, secure web application for managing Azure Key Vault secrets with advanced batch operations.",
   "private": true,
   "keywords": [
@@ -44,6 +44,7 @@
     "@azure/keyvault-secrets": "^4.10.0",
     "@headlessui/react": "^2.2.4",
     "@types/uuid": "^10.0.0",
+    "electron-updater": "^6.6.2",
     "lucide-react": "^0.525.0",
     "next": "^15.5.5",
     "react": "19.1.0",
@@ -85,43 +86,6 @@
         "from": ".next/standalone",
         "to": "standalone"
       }
-    ],
-    "mac": {
-      "category": "public.app-category.developer-tools",
-      "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        },
-        {
-          "target": "zip",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        }
-      ],
-      "icon": "assets/icon.icns"
-    },
-    "win": {
-      "sign": false,
-      "target": [
-        {
-          "target": "zip",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "icon": "assets/icon.ico"
-    },
-    "publish": {
-      "provider": "github",
-      "owner": "YaffleZ",
-      "repo": "Griphook"
-    }
+    ]
   }
 }

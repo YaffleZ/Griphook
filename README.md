@@ -1,4 +1,4 @@
-# Griphook - Azure Key Vault Advanced Secrets Editor
+# Azure Key Vault Advanced Secrets Editor
 
 A modern, secure application for managing Azure Key Vault secrets with advanced features including batch editing, adding new secrets, and deletion capabilities. Available as both a web application and native desktop app.
 
@@ -199,16 +199,6 @@ Your Azure identity (Service Principal or Managed Identity) needs the following 
 
 - **Secret permissions**: Get, List, Set, Delete
 - **Optional**: Backup, Restore, Recover, Purge (for advanced operations)
-
-## 🔧 Setup (Simplified!)
-
-### ✅ **No Configuration Required!**
-This application uses the **Azure CLI public client ID** with multi-tenant support, which means:
-- ✅ No need to create a custom Azure AD app registration
-- ✅ No admin consent required in most organizations  
-- ✅ Works out-of-the-box with `http://localhost:3000` redirect URI
-- ✅ Same security and permissions as Azure CLI
-- ✅ Users authenticate with their own Azure tenant automatically
 
 ### 📋 **What You Need:**
 1. **Azure Account** - Any valid Azure account with appropriate permissions
