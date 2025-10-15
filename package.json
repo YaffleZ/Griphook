@@ -1,6 +1,6 @@
 {
   "name": "griphook",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Griphook - Your trusted Azure Key Vault secrets guardian. A modern, secure web application for managing Azure Key Vault secrets with advanced batch operations.",
   "private": true,
   "keywords": [
@@ -91,7 +91,9 @@
       "target": [
         {
           "target": "zip",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     },
@@ -99,11 +101,17 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         },
         {
           "target": "zip",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ]
     },
