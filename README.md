@@ -18,11 +18,10 @@ Download the latest release for your operating system:
 
 [![Download for Windows](https://img.shields.io/badge/Download-Windows-blue?style=for-the-badge&logo=windows)](https://github.com/YaffleZ/Griphook/releases/latest)
 [![Download for macOS](https://img.shields.io/badge/Download-macOS-black?style=for-the-badge&logo=apple)](https://github.com/YaffleZ/Griphook/releases/latest)
-[![Download for Linux](https://img.shields.io/badge/Download-Linux-orange?style=for-the-badge&logo=linux)](https://github.com/YaffleZ/Griphook/releases/latest)
 
 ### 🎯 For End Users: Simple Installation
 1. **[Download the installer](https://github.com/YaffleZ/Griphook/releases/latest)** for your operating system
-2. **Run the installer** (Windows: `.exe`, macOS: `.dmg`, Linux: `.AppImage` or `.deb`)
+2. **Run the installer** (Windows: `.exe`, macOS: `.dmg`)
 3. **Launch Griphook** and sign in with your Azure account
 4. **Start managing** your Azure Key Vault secrets!
 
@@ -184,8 +183,7 @@ docker run -d -p 3000:3000 yourusername/griphook:latest
    
    # For specific platforms
    npm run electron-build -- --win  # Windows
-   npm run electron-build -- --mac  # macOS  
-   npm run electron-build -- --linux # Linux
+   npm run electron-build -- --mac  # macOS
    ```
 
    **Or use the build scripts:**
@@ -193,7 +191,7 @@ docker run -d -p 3000:3000 yourusername/griphook:latest
    # Windows
    .\scripts\build-desktop.ps1
    
-   # macOS/Linux
+   # macOS
    ./scripts/build-desktop.sh
    ```
 
