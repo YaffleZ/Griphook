@@ -1,22 +1,4 @@
 const { app, BrowserWindow, Menu, shell, dialog, ipcMain } = require('electron');
-let autoUpdater;
-try {
-  const { autoUpdater: updater } = require('electron-updater');
-  autoUpdater = updater;
-} catch (error) {
-  console.warn('electron-updater not available, auto-update disabled:', error.message);
-  // Create a mock autoUpdater for development
-  autoUpdater = {
-    autoDownload: false,
-    autoInstallOnAppQuit: false,
-    checkForUpdates: () => Promise.resolve({ updateInfo: null }),
-    downloadUpdate: () => Promise.resolve(),
-    quitAndInstall: () => app.quit(),
-    on: (event, callback) => {
-      console.log(`Auto-update event listener registered: ${event}`);
-    }
-  };
-}
 const path = require('path');
 const { fork } = require('child_process');
 const http = require('http');
@@ -27,53 +9,6 @@ const isDev = process.env.NODE_ENV === 'development';
 let mainWindow;
 let nextServer;
 let oauthCallbackServer;
-
-// Configure auto updater
-autoUpdater.autoDownload = false; // Download manually after user confirmation
-autoUpdater.autoInstallOnAppQuit = false; // Install manually
-
-// Auto updater event handlers
-autoUpdater.on('error', (error) => {
-  console.error('Auto updater error:', error);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-error', error.message || 'Unknown error');
-  }
-});
-
-autoUpdater.on('checking-for-update', () => {
-  console.log('Checking for updates...');
-  if (mainWindow) {
-    mainWindow.webContents.send('checking-for-update');
-  }
-});
-
-autoUpdater.on('update-available', (info) => {
-  console.log('Update available:', info);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-available', info);
-  }
-});
-
-autoUpdater.on('update-not-available', (info) => {
-  console.log('No updates available:', info);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-not-available', info);
-  }
-});
-
-autoUpdater.on('download-progress', (progressObj) => {
-  console.log('Download progress:', progressObj);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-download-progress', progressObj);
-  }
-});
-
-autoUpdater.on('update-downloaded', (info) => {
-  console.log('Update downloaded:', info);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-downloaded', info);
-  }
-});
 
 const port = process.env.PORT || '3000';
 const startUrl = `http://localhost:${port}`; // Always use localhost for OAuth redirect URI compatibility
@@ -510,55 +445,6 @@ ipcMain.handle('oauth-login', async (event, authUrl) => {
   }
 });
 
-// Handle check for updates
-ipcMain.handle('check-updates', async () => {
-  if (isDev) {
-    console.log('Skipping update check in development mode');
-    return { isDev: true };
-  }
-  
-  if (!autoUpdater || !autoUpdater.checkForUpdates) {
-    console.log('Auto-update not available');
-    return { available: false, message: 'Auto-update functionality not available' };
-  }
-  
-  try {
-    console.log('Checking for updates...');
-    return await autoUpdater.checkForUpdates();
-  } catch (error) {
-    console.error('Failed to check for updates:', error);
-    throw error;
-  }
-});
-
-// Handle download update
-ipcMain.handle('download-update', async () => {
-  if (!autoUpdater || !autoUpdater.downloadUpdate) {
-    console.log('Auto-update not available for download');
-    return { success: false, message: 'Auto-update functionality not available' };
-  }
-  
-  try {
-    console.log('Downloading update...');
-    return await autoUpdater.downloadUpdate();
-  } catch (error) {
-    console.error('Failed to download update:', error);
-    throw error;
-  }
-});
-
-// Handle quit and install
-ipcMain.handle('quit-and-install', async () => {
-  if (!autoUpdater || !autoUpdater.quitAndInstall) {
-    console.log('Auto-update not available for install');
-    app.quit();
-    return;
-  }
-  
-  console.log('Installing update and quitting...');
-  autoUpdater.quitAndInstall();
-});
-
 // Create application menu
 function createMenu() {
   const template = [
@@ -608,41 +494,6 @@ function createMenu() {
     {
       label: 'Help',
       submenu: [
-        {
-          label: 'Check for Updates',
-          click: async () => {
-            if (isDev) {
-              dialog.showMessageBox(mainWindow, {
-                type: 'info',
-                title: 'Check for Updates',
-                message: 'Update Check',
-                detail: 'You are running in development mode. Updates are not checked in development.'
-              });
-              return;
-            }
-            
-            if (!autoUpdater || !autoUpdater.checkForUpdates) {
-              dialog.showMessageBox(mainWindow, {
-                type: 'info',
-                title: 'Check for Updates',
-                message: 'Update Check',
-                detail: 'Auto-update functionality is not available in this version.'
-              });
-              return;
-            }
-            
-            try {
-              await autoUpdater.checkForUpdates();
-            } catch (error) {
-              dialog.showMessageBox(mainWindow, {
-                type: 'error',
-                title: 'Update Check Failed',
-                message: 'Failed to check for updates',
-                detail: error.message || 'An unknown error occurred while checking for updates.'
-              });
-            }
-          }
-        },
         {
           label: 'About Griphook',
           click: () => {
@@ -697,18 +548,6 @@ function createMenu() {
 app.whenReady().then(() => {
   createWindow();
   createMenu();
-
-  // Check for updates after app is ready (but not in development)
-  if (!isDev && autoUpdater && autoUpdater.checkForUpdates) {
-    // Add a small delay before checking for updates to ensure app is fully loaded
-    setTimeout(() => {
-      autoUpdater.checkForUpdates().catch(error => {
-        console.error('Auto update check failed:', error);
-      });
-    }, 5000);
-  } else {
-    console.log('Auto-update disabled in development or not available');
-  }
 
   app.on('activate', () => {
     // On macOS, re-create window when dock icon is clicked

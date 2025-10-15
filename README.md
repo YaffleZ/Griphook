@@ -56,12 +56,18 @@ Download the latest release for your operating system:
 - **Loading States**: Clear indicators for ongoing operations
 - **Error Handling**: Comprehensive error messages and recovery guidance
 
-### 🖥️ **Desktop App Benefits**
+### � **Enterprise Security**
+- **AES-256-GCM Encryption**: All sensitive authentication data encrypted locally
+- **Device-bound Keys**: Encryption keys tied to your specific device
+- **Automatic Migration**: Seamless upgrade from plain text storage
+- **Zero Trust Architecture**: Authentication tokens never stored in plain text
+
+### �🖥️ **Desktop App Benefits**
 - **Native Performance**: Faster startup and better resource management
 - **Offline Capabilities**: Some features work without internet (viewing cached data)
 - **System Integration**: Native notifications, system tray, and OS-specific menus
-- **Auto-Updates**: Seamless updates delivered automatically
 - **Enhanced Security**: Runs in isolated environment with better credential protection
+- **Encrypted Storage**: All Azure credentials and tokens secured with enterprise-grade encryption
 
 ## 🚀 Getting Started
 
@@ -239,11 +245,21 @@ Your Azure identity (Service Principal or Managed Identity) needs the following 
 
 ## 🔒 Security Features
 
+### 🛡️ **Data Protection**
+- **AES-256-GCM Encryption**: All sensitive authentication data encrypted locally using Web Crypto API
+- **Device-bound Keys**: Encryption keys derived using PBKDF2 with 100,000 iterations and tied to device fingerprint
+- **Automatic Migration**: Seamless upgrade from plain text storage to encrypted storage for existing users
+- **Zero Trust Architecture**: Authentication tokens, refresh tokens, and subscription data never stored in plain text
+
+### 🔐 **Access Control**
 - **User-Level Access Control**: Each user can only access Key Vaults they have permissions to
 - **No Server-Side Secret Storage**: Secret values are never cached server-side
-- **Browser-Only Caching**: Secure caching in user's browser only
+- **Browser-Only Caching**: Secure caching in user's browser only (now encrypted)
 - **Audit Trails**: All operations are logged under the user's identity
 - **Input Validation**: Comprehensive validation for all user inputs
+
+### 📋 **For More Details**
+See [ENCRYPTION.md](ENCRYPTION.md) for complete technical documentation of the encryption implementation.
 
 ## 🤝 Contributing
 

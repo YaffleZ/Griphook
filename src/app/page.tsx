@@ -171,7 +171,16 @@ export default function Home() {
         }
         setKeyVaults(storedKeyVaults);
         setFilteredKeyVaults(storedKeyVaults);
-        setIsAuthenticated(true);
+        
+        // Both web and Electron versions: Always show subscription selection screen for user choice
+        console.log('Always showing subscription selection screen for user confirmation');
+        // Pre-select all subscriptions so users can see them all and modify if needed
+        const allSubscriptionNames = (storedSubs || [])
+          .map((sub: SubscriptionInfo) => sub.displayName || sub.subscriptionId || '')
+          .filter((name: string) => name !== '');
+        setSelectedSubscriptions(allSubscriptionNames);
+        setShowSubscriptionSelection(true);
+        // Don't set isAuthenticated yet - wait for user to confirm selection
       }
     } catch (e) {
       console.error('Failed to load stored authentication data:', e);
@@ -303,9 +312,9 @@ export default function Home() {
       const hasAuthData = await AzureSecureStorage.hasAnyAuthData();
       
       if (hasAuthData) {
-        // Auth completed in browser, reload the page to trigger migration and load
+        // Auth completed in browser, load stored auth data which will trigger subscription selection
         sessionStorage.removeItem('awaiting_auth');
-        window.location.reload();
+        await loadStoredAuthData();
       }
     };
     
@@ -420,15 +429,14 @@ export default function Home() {
       setFilteredKeyVaults([]);
       console.log('Subscriptions state set:', data.subscriptions || []);
       
-      // Show subscription selection if user has many subscriptions
-      console.log('Subscription count:', dataSubscriptionsCount);
-      if (dataSubscriptionsCount > 10) {
-        console.log('Showing subscription selection screen');
-        setShowSubscriptionSelection(true);
-      } else {
-        console.log('Showing main interface directly');
-        setIsAuthenticated(true);
-      }
+      // Both web and Electron versions: Always show subscription selection screen for user choice
+      console.log('Always showing subscription selection screen for user confirmation');
+      // Pre-select all subscriptions so users can see them all and modify if needed
+      const allSubscriptionNames = (data.subscriptions || [])
+        .map((sub: SubscriptionInfo) => sub.displayName || sub.subscriptionId || '')
+        .filter((name: string) => name !== '');
+      setSelectedSubscriptions(allSubscriptionNames);
+      setShowSubscriptionSelection(true);
       
       // Clean up URL
       try { window.history.replaceState({}, document.title, window.location.pathname); } catch {}

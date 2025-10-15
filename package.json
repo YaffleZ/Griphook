@@ -1,6 +1,6 @@
 {
   "name": "griphook",
-  "version": "0.0.5",
+  "version": "0.0.4",
   "description": "Griphook - Your trusted Azure Key Vault secrets guardian. A modern, secure web application for managing Azure Key Vault secrets with advanced batch operations.",
   "private": true,
   "keywords": [
@@ -21,7 +21,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
-    "export": "next build && next export",
+    "export": "next build",
     "start": "next start",
     "lint": "next lint",
     "electron": "electron .",
@@ -44,7 +44,6 @@
     "@azure/keyvault-secrets": "^4.10.0",
     "@headlessui/react": "^2.2.4",
     "@types/uuid": "^10.0.0",
-    "electron-updater": "^6.6.2",
     "lucide-react": "^0.525.0",
     "next": "^15.5.5",
     "react": "19.1.0",
@@ -71,20 +70,58 @@
     "appId": "com.griphook.keyvault-editor",
     "productName": "Griphook",
     "copyright": "Copyright © 2024",
+    "compression": "maximum",
+    "removePackageScripts": true,
     "directories": {
       "output": "dist"
     },
     "files": [
       "electron/**/*",
+      "!electron/**/*.map",
       "!node_modules",
       "!src",
-      "!.git",
-      "!.next"
+      "!.git*",
+      "!.next",
+      "!*.md",
+      "!LICENSE",
+      "!TECHNICAL_DOCS.md",
+      "!.github",
+      "!.vscode",
+      "!.env*",
+      "!eslint.config.mjs",
+      "!postcss.config.mjs",
+      "!tailwind.config.ts",
+      "!tsconfig.json",
+      "!next.config.ts",
+      "!next-env.d.ts",
+      "!docker*",
+      "!Dockerfile*"
     ],
     "extraResources": [
       {
         "from": ".next/standalone",
-        "to": "standalone"
+        "to": "standalone",
+        "filter": [
+          "**/*",
+          "!**/node_modules/**/test/**",
+          "!**/node_modules/**/tests/**",
+          "!**/node_modules/**/docs/**",
+          "!**/node_modules/**/doc/**",
+          "!**/node_modules/**/examples/**",
+          "!**/node_modules/**/example/**",
+          "!**/node_modules/**/*.md",
+          "!**/node_modules/**/*.txt",
+          "!**/node_modules/**/LICENSE*",
+          "!**/node_modules/**/CHANGELOG*",
+          "!**/node_modules/**/.github/**",
+          "!**/node_modules/**/.vscode/**",
+          "!**/node_modules/**/coverage/**",
+          "!**/node_modules/**/.nyc_output/**",
+          "!**/node_modules/**/benchmark/**",
+          "!**/node_modules/**/benchmarks/**",
+          "!**/node_modules/**/*.map",
+          "!**/node_modules/**/*.d.ts.map"
+        ]
       }
     ],
     "win": {
@@ -95,7 +132,9 @@
             "x64"
           ]
         }
-      ]
+      ],
+      "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+      "fileAssociations": []
     },
     "mac": {
       "target": [
@@ -113,7 +152,9 @@
             "arm64"
           ]
         }
-      ]
+      ],
+      "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+      "category": "public.app-category.developer-tools"
     },
     "forceCodeSigning": false
   }

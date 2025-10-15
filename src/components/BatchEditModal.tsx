@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Save, Download, Upload, AlertTriangle, Maximize2, Minimize2 } from 'lucide-react';
+import { X, Save, Download, Upload, AlertTriangle } from 'lucide-react';
 import Portal from './Portal';
 
 interface KeyVaultSecret {
@@ -42,18 +42,17 @@ export default function BatchEditModal({
   const [errorMessage, setErrorMessage] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
   const [originalJson, setOriginalJson] = useState('');
-  const [isMaximized, setIsMaximized] = useState(false);
 
-  // Focus management for full-screen mode
+  // Focus management for the modal
   useEffect(() => {
-    if (isMaximized) {
-      // Focus the textarea when entering full-screen mode
+    if (isOpen) {
+      // Focus the textarea when the modal opens
       const textarea = document.querySelector('textarea');
       if (textarea) {
         setTimeout(() => textarea.focus(), 100);
       }
     }
-  }, [isMaximized]);
+  }, [isOpen]);
 
   // Initialize JSON content when modal opens or secrets change
   useEffect(() => {
@@ -78,35 +77,27 @@ export default function BatchEditModal({
       setHasChanges(false);
       setIsValidJson(true);
       setErrorMessage('');
-      setIsMaximized(false); // Reset to normal view when opening
+      // Always start in full screen mode - no longer resetting to false
     }
   }, [isOpen, secrets, secretValues]);
 
-  // Add keyboard shortcuts for full-screen toggle
+  // Add keyboard shortcuts for modal controls
   useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      // F11 key to toggle full-screen
-      if (event.key === 'F11') {
+      // Escape key to close the modal
+      if (event.key === 'Escape') {
         event.preventDefault();
-        setIsMaximized(!isMaximized);
-      }
-      // Escape key to exit full-screen (only if maximized)
-      else if (event.key === 'Escape' && isMaximized) {
-        event.preventDefault();
-        setIsMaximized(false);
+        onClose();
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isMaximized]);
+  }, [isOpen, onClose]);
 
-  // Handle maximize/minimize toggle
-  const toggleMaximized = () => {
-    setIsMaximized(!isMaximized);
-  };
+
 
   // Validate JSON and detect changes
   const handleContentChange = (value: string) => {
@@ -266,47 +257,19 @@ export default function BatchEditModal({
 
   return (
     <Portal>
-      <div className={`fixed inset-0 z-[9999] ${
-        isMaximized 
-          ? 'bg-white' 
-          : 'bg-black bg-opacity-50 flex items-center justify-center p-4'
-      }`}>
-      <div className={`bg-white shadow-xl w-full flex flex-col ${
-        isMaximized 
-          ? 'h-screen max-w-none max-h-none rounded-none' 
-          : 'max-w-6xl max-h-[90vh] rounded-lg'
-      }`}>
+      <div className="fixed inset-0 z-[9999] bg-white">
+        <div className="bg-white shadow-xl w-full h-screen max-w-none max-h-none rounded-none flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
           <div>
             <h2 className="text-xl font-semibold text-gray-900">
-              Batch Edit Secrets {isMaximized ? '(Full Screen)' : ''}
+              Batch Edit Secrets (Full Screen)
             </h2>
             <p className="text-sm text-gray-600 mt-1">
-              {isMaximized 
-                ? 'Full screen editing mode. Edit, add, or delete secrets in JSON format. Press F11 or Escape to toggle full screen.'
-                : 'Edit, add, or delete secrets in JSON format. Press F11 for full screen editing.'
-              }
+              Full screen editing mode. Edit, add, or delete secrets in JSON format. Press Escape to close.
             </p>
           </div>
           <div className="flex items-center space-x-2">
-            <button
-              onClick={toggleMaximized}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              title={isMaximized ? 'Exit full screen' : 'Enter full screen'}
-            >
-              {isMaximized ? (
-                <>
-                  <Minimize2 className="h-4 w-4 mr-1" />
-                  Exit Full Screen
-                </>
-              ) : (
-                <>
-                  <Maximize2 className="h-4 w-4 mr-1" />
-                  Full Screen
-                </>
-              )}
-            </button>
             <input
               type="file"
               accept=".json"
@@ -452,7 +415,7 @@ export default function BatchEditModal({
               <li>Ensure the JSON remains valid (proper syntax and structure)</li>
               <li>Changes are saved individually for each modified/new/deleted secret</li>
               <li>Use Export/Import to backup or share secret configurations</li>
-              <li><strong>Keyboard shortcuts:</strong> F11 to toggle full screen, Escape to exit full screen</li>
+              <li><strong>Keyboard shortcuts:</strong> Escape to close modal</li>
             </ul>
           </div>
         </div>

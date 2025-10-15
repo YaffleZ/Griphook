@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const isElectron = process.env.BUILD_TARGET === 'electron';
 
 const nextConfig: NextConfig = {
-  // Use standalone for Docker and Electron local prod (we will still copy assets)
+  // Use standalone for both Docker and Electron
   output: 'standalone',
   
   // Development and production optimizations

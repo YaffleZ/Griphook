@@ -15,7 +15,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Safe IPC communication (if needed in the future)
   invoke: (channel, ...args) => {
     // Whitelist allowed channels
-    const validChannels = ['app-version', 'check-updates', 'oauth-login', 'download-update', 'quit-and-install'];
+    const validChannels = ['app-version', 'oauth-login'];
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, ...args);
     }
@@ -23,7 +23,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Listen to safe channels
   on: (channel, callback) => {
-    const validChannels = ['update-available', 'update-downloaded', 'oauth-code', 'update-not-available', 'update-download-progress', 'checking-for-update', 'update-error'];
+    const validChannels = ['oauth-code'];
     if (validChannels.includes(channel)) {
       ipcRenderer.on(channel, callback);
     }
@@ -31,7 +31,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Remove listeners
   removeAllListeners: (channel) => {
-    const validChannels = ['update-available', 'update-downloaded', 'oauth-code', 'update-not-available', 'update-download-progress', 'checking-for-update', 'update-error'];
+    const validChannels = ['oauth-code'];
     if (validChannels.includes(channel)) {
       ipcRenderer.removeAllListeners(channel);
     }
