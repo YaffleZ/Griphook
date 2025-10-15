@@ -28,7 +28,7 @@
     "electron-dev": "node scripts/electron-dev.js",
     "electron-build": "npm run export && electron-builder",
     "build-electron": "next build && node scripts/prepare-electron.js && electron-builder",
-    "dist": "npm run export && electron-builder --publish=always",
+    "dist": "npm run export && electron-builder",
     "docker:build": "docker build -t griphook:latest .",
     "docker:dev": "docker build -f Dockerfile.dev -t griphook:dev .",
     "docker:run": "docker run -d --name griphook -p 3000:3000 griphook:latest",
