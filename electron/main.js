@@ -1,9 +1,74 @@
 const { app, BrowserWindow, Menu, shell, dialog, ipcMain } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const { fork } = require('child_process');
 const http = require('http');
 const { URL } = require('url');
 const isDev = process.env.NODE_ENV === 'development';
+
+// Configure auto-updater
+if (!isDev) {
+  // Auto-updater configuration
+  autoUpdater.autoDownload = false; // Don't auto-download, let user choose
+  autoUpdater.autoInstallOnAppQuit = true; // Install on quit if update was downloaded
+  
+  // Auto-updater event handlers
+  autoUpdater.on('checking-for-update', () => {
+    console.log('Checking for updates...');
+  });
+  
+  autoUpdater.on('update-available', (info) => {
+    console.log('Update available:', info.version);
+    const response = dialog.showMessageBoxSync({
+      type: 'info',
+      title: 'Update Available',
+      message: `A new version ${info.version} is available. Would you like to download it now?`,
+      detail: 'The update will be installed when you restart the application.',
+      buttons: ['Download', 'Later'],
+      defaultId: 0,
+      cancelId: 1
+    });
+    
+    if (response === 0) {
+      autoUpdater.downloadUpdate();
+    }
+  });
+  
+  autoUpdater.on('update-not-available', (info) => {
+    console.log('Update not available. Current version:', info.version);
+  });
+  
+  autoUpdater.on('error', (err) => {
+    console.error('Error in auto-updater:', err);
+  });
+  
+  autoUpdater.on('download-progress', (progressObj) => {
+    let log_message = `Download speed: ${progressObj.bytesPerSecond} - Downloaded ${progressObj.percent}% (${progressObj.transferred}/${progressObj.total})`;
+    console.log(log_message);
+    
+    // Notify renderer process if main window exists
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('download-progress', progressObj);
+    }
+  });
+  
+  autoUpdater.on('update-downloaded', (info) => {
+    console.log('Update downloaded:', info.version);
+    const response = dialog.showMessageBoxSync({
+      type: 'info',
+      title: 'Update Ready',
+      message: `Version ${info.version} has been downloaded.`,
+      detail: 'The update will be installed when you restart the application. Would you like to restart now?',
+      buttons: ['Restart Now', 'Later'],
+      defaultId: 0,
+      cancelId: 1
+    });
+    
+    if (response === 0) {
+      autoUpdater.quitAndInstall(false, true);
+    }
+  });
+}
 
 // Keep a global reference of the window object
 let mainWindow;
@@ -506,6 +571,21 @@ function createMenu() {
           }
         },
         {
+          label: 'Check for Updates',
+          click: () => {
+            if (!isDev) {
+              autoUpdater.checkForUpdates();
+            } else {
+              dialog.showMessageBox(mainWindow, {
+                type: 'info',
+                title: 'Updates',
+                message: 'Auto-update is disabled in development mode.'
+              });
+            }
+          }
+        },
+        { type: 'separator' },
+        {
           label: 'GitHub Repository',
           click: () => shell.openExternal('https://github.com/YaffleZ/Griphook')
         }
@@ -548,6 +628,14 @@ function createMenu() {
 app.whenReady().then(() => {
   createWindow();
   createMenu();
+
+  // Check for updates on startup (only in production)
+  if (!isDev) {
+    // Wait a few seconds before checking for updates to let the app load
+    setTimeout(() => {
+      autoUpdater.checkForUpdates();
+    }, 5000);
+  }
 
   app.on('activate', () => {
     // On macOS, re-create window when dock icon is clicked

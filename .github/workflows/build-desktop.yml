@@ -32,13 +32,25 @@ jobs:
 
       - name: Build Electron app (Windows)
         if: matrix.os == 'windows-latest'
-        run: npm run build-electron -- --win
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            npm run build-electron -- --win --publish always
+          else
+            npm run build-electron -- --win
+          fi
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Electron app (macOS)
         if: matrix.os == 'macos-latest'
-        run: npm run build-electron -- --mac
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            npm run build-electron -- --mac --publish always
+          else
+            npm run build-electron -- --mac
+          fi
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # For code signing (optional)
@@ -52,6 +64,7 @@ jobs:
         with:
           name: griphook-windows
           path: |
+            dist/*.msi
             dist/*.zip
 
       - name: Upload artifacts (macOS)
@@ -88,7 +101,7 @@ jobs:
             🖥️ **Native Desktop Application for Azure Key Vault Management**
             
             ### Downloads
-            - **Windows**: `.zip` (portable archive)
+            - **Windows**: `.msi` (installer) or `.zip` (portable archive)
             - **macOS**: `.dmg` (disk image) or `.zip` (portable)
             
             ### Features
@@ -96,13 +109,22 @@ jobs:
             - ⚡ Batch operations for multiple secrets
             - 🛡️ Secure Azure AD authentication
             - 🎨 Modern, responsive interface
-            - 🔄 Auto-update capability
+            - 🔄 Auto-update capability (MSI installer only)
             
             ### Installation
-            1. Download the appropriate file for your OS
-            2. Extract the archive (Windows ZIP or macOS ZIP) or mount the DMG on macOS
-            3. Launch Griphook and authenticate with your Azure account
-            4. Start managing your Azure Key Vault secrets!
+            
+            **Windows:**
+            1. Download the `.msi` installer for automatic updates
+            2. Run the installer and follow the prompts
+            3. Launch Griphook from the Start Menu
+            
+            Alternatively, download the `.zip` for a portable version
+            
+            **macOS:**
+            1. Download the `.dmg` or `.zip` file
+            2. Mount the DMG or extract the ZIP
+            3. Drag Griphook to Applications
+            4. Launch Griphook and authenticate with your Azure account
             
             ### System Requirements
             - Windows 10/11 or macOS 10.14+

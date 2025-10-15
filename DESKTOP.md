@@ -92,14 +92,11 @@ These scripts:
 After building, you'll find installers in the `dist/` folder:
 
 - **Windows**: 
-  - `Griphook Setup 1.0.0.exe` (NSIS installer)
-  - `Griphook 1.0.0.exe` (portable executable)
+  - `Griphook-[version]-win-x64.msi` (MSI installer with auto-update support)
+  - `Griphook-[version]-win-x64.zip` (portable archive)
 - **macOS**:
-  - `Griphook-1.0.0.dmg` (disk image)
-  - `Griphook-1.0.0-mac.zip` (portable app)
-- **Linux**:
-  - `Griphook-1.0.0.AppImage` (portable application)
-  - `griphook_1.0.0_amd64.deb` (Debian package)
+  - `Griphook-[version]-mac-[arch].dmg` (disk image)
+  - `Griphook-[version]-mac-[arch].zip` (portable app)
 
 ### Automated Releases with GitHub Actions
 
@@ -110,14 +107,14 @@ The repository includes a GitHub Actions workflow (`.github/workflows/build-desk
    - Manual workflow dispatch
 
 2. **Builds for**:
-   - Windows (latest)
-   - macOS (latest) 
-   - Linux (Ubuntu latest)
+   - Windows (x64) - MSI installer and ZIP archive
+   - macOS (x64 and ARM64) - DMG and ZIP
 
 3. **Creates**:
    - Build artifacts for each platform
    - GitHub release with all installers
    - Release notes with download links
+   - Automatic publishing for electron-updater integration
 
 #### To Create a Release:
 ```bash
@@ -129,6 +126,40 @@ git push origin v1.0.0
 # 1. Build apps for all platforms
 # 2. Create a GitHub release
 # 3. Upload installers as release assets
+# 4. Publish for electron-updater auto-update system
+```
+
+## 🔄 Auto-Update System
+
+Griphook includes automatic update functionality powered by `electron-updater`:
+
+### Features
+- **Automatic Update Checks**: App checks for updates on startup and periodically
+- **Manual Update Check**: Users can check for updates via Help → Check for Updates menu
+- **User-Controlled**: Users choose when to download and install updates
+- **GitHub Releases Integration**: Updates are fetched from GitHub Releases
+
+### How It Works
+1. App checks GitHub releases for new versions (only for MSI-installed apps on Windows)
+2. User is notified when an update is available
+3. User can choose to download now or later
+4. Downloaded updates are installed on next app restart
+
+### Configuration
+The auto-updater is configured in `electron/main.js`:
+- Checks for updates 5 seconds after app startup
+- Updates downloaded from GitHub releases
+- Auto-installs on app quit (after user approval)
+
+### For Developers
+To enable auto-updates in releases:
+1. Ensure version in `package.json` is incremented
+2. Tag the release with `v` prefix (e.g., `v1.0.1`)
+3. Push the tag to trigger GitHub Actions
+4. The workflow will build and publish with `--publish always` flag
+5. electron-updater will detect the new release automatically
+
+**Note**: Auto-updates only work for installed applications (MSI on Windows, DMG on macOS). Portable versions (ZIP) do not support auto-updates.
 ```
 
 ## 🔧 Configuration
@@ -140,27 +171,28 @@ The build configuration is in `package.json` under the `build` key:
 ```json
 {
   "build": {
-    "appId": "com.griphook.app",
+    "appId": "com.griphook.keyvault-editor",
     "productName": "Griphook",
+    "publish": {
+      "provider": "github",
+      "owner": "YaffleZ",
+      "repo": "Griphook"
+    },
     "directories": {
       "output": "dist"
     },
     "files": [
-      "out/**/*",
-      "electron/**/*", 
-      "node_modules/**/*",
-      "package.json"
+      "electron/**/*",
+      "!node_modules",
+      "!src"
     ],
     "mac": {
       "category": "public.app-category.developer-tools",
       "target": ["dmg", "zip"]
     },
     "win": {
-      "target": ["nsis", "portable"]
-    },
-    "linux": {
-      "target": ["AppImage", "deb"],
-      "category": "Development"
+      "target": ["msi", "zip"],
+      "publisherName": "Griphook"
     }
   }
 }

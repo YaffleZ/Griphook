@@ -94,11 +94,15 @@ Visit the **[Releases Page](https://github.com/YaffleZ/Griphook/releases/latest)
 
 ## 🔄 Auto-Updates
 
-Griphook automatically checks for updates and will notify you when new versions are available. Updates include:
+Griphook automatically checks for updates and will notify you when new versions are available (MSI installer on Windows, DMG installer on macOS). Updates include:
 
 - 🐛 **Bug fixes** and security patches
 - ✨ **New features** and improvements  
 - 🎨 **UI enhancements** and usability improvements
+
+To check for updates manually, go to **Help** → **Check for Updates** in the application menu.
+
+**Note**: Auto-update functionality is available for installed applications. Portable versions (ZIP archives) require manual updates.
 
 ## 📞 Support
 

@@ -60,6 +60,7 @@
     "cross-env": "^7.0.3",
     "electron": "^33.4.11",
     "electron-builder": "^25.1.8",
+    "electron-updater": "^6.6.2",
     "eslint": "^9",
     "eslint-config-next": "15.4.1",
     "tailwindcss": "^4",
@@ -72,6 +73,11 @@
     "copyright": "Copyright © 2024",
     "compression": "maximum",
     "removePackageScripts": true,
+    "publish": {
+      "provider": "github",
+      "owner": "YaffleZ",
+      "repo": "Griphook"
+    },
     "directories": {
       "output": "dist"
     },
@@ -127,6 +133,12 @@
     "win": {
       "target": [
         {
+          "target": "msi",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
           "target": "zip",
           "arch": [
             "x64"
@@ -134,7 +146,8 @@
         }
       ],
       "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
-      "fileAssociations": []
+      "fileAssociations": [],
+      "publisherName": "Griphook"
     },
     "mac": {
       "target": [
