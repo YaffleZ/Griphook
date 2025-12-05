@@ -48,6 +48,13 @@ next-env.d.ts
 
 # Electron build artifacts
 /dist/
+/electron/
+
+# Electron scripts
+/scripts/electron-dev.js
+/scripts/prepare-electron.js
+/scripts/build-desktop.sh
+/scripts/build-desktop.ps1
 
 # IDE files
 .vscode/

@@ -1,4 +1,4 @@
-name: Build Desktop Apps
+name: Build and Release
 
 on:
   push:
@@ -11,11 +11,7 @@ permissions:
 
 jobs:
   build:
-    strategy:
-      matrix:
-        os: [windows-latest, macos-latest]
-    
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     
     steps:
       - name: Checkout code
@@ -30,40 +26,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build Electron app (Windows)
-        if: matrix.os == 'windows-latest'
-        run: npm run build-electron -- --win
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build Next.js application
+        run: npm run build
 
-      - name: Build Electron app (macOS)
-        if: matrix.os == 'macos-latest'
-        run: npm run build-electron -- --mac
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # For code signing (optional)
-          # CSC_IDENTITY_AUTO_DISCOVERY: false
-
-      # Linux build removed
-
-      - name: Upload artifacts (Windows)
-        if: matrix.os == 'windows-latest'
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: griphook-windows
+          name: griphook-build
           path: |
-            dist/*.zip
-
-      - name: Upload artifacts (macOS)
-        if: matrix.os == 'macos-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: griphook-macos
-          path: |
-            dist/*.dmg
-            dist/*.zip
-
-      # Linux artifact upload removed
+            .next/
+            package.json
+            package-lock.json
 
   release:
     needs: build
@@ -71,41 +44,37 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     
     steps:
-      - name: Download all artifacts
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
         uses: actions/download-artifact@v4
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: |
-            griphook-windows/*
-            griphook-macos/*
           draft: false
           prerelease: false
           body: |
-            ## Griphook Desktop ${{ github.ref_name }}
+            ## Griphook ${{ github.ref_name }}
             
-            🖥️ **Native Desktop Application for Azure Key Vault Management**
-            
-            ### Downloads
-            - **Windows**: `.zip` (portable archive)
-            - **macOS**: `.dmg` (disk image) or `.zip` (portable)
+            🌐 **Web Application for Azure Key Vault Management**
             
             ### Features
             - 🔐 Azure Key Vault secret management
             - ⚡ Batch operations for multiple secrets
             - 🛡️ Secure Azure AD authentication
             - 🎨 Modern, responsive interface
-            - 🔄 Auto-update capability
+            - 🔒 AES-256-GCM encryption for local data
             
-            ### Installation
-            1. Download the appropriate file for your OS
-            2. Extract the archive (Windows ZIP or macOS ZIP) or mount the DMG on macOS
-            3. Launch Griphook and authenticate with your Azure account
-            4. Start managing your Azure Key Vault secrets!
+            ### Deployment
+            This is a Next.js web application. Deploy using:
+            - **Vercel**: `vercel deploy`
+            - **Docker**: `docker-compose up -d`
+            - **Self-hosted**: See README.md for instructions
             
-            ### System Requirements
-            - Windows 10/11 or macOS 10.14+
+            ### Requirements
+            - Node.js 20+
             - Internet connection for Azure authentication
             - Azure subscription with Key Vault access
         env:

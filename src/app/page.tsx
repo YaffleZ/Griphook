@@ -172,7 +172,7 @@ export default function Home() {
         setKeyVaults(storedKeyVaults);
         setFilteredKeyVaults(storedKeyVaults);
         
-        // Both web and Electron versions: Always show subscription selection screen for user choice
+        // Always show subscription selection screen for user choice
         console.log('Always showing subscription selection screen for user confirmation');
         // Pre-select all subscriptions so users can see them all and modify if needed
         const allSubscriptionNames = (storedSubs || [])
@@ -211,9 +211,6 @@ export default function Home() {
 
   const initiateAzureLogin = async () => {
     try {
-      // Check if we're in Electron
-      const isElectron = typeof window !== 'undefined' && window.electronAPI;
-      
       // Generate PKCE values
       const codeVerifier = generateCodeVerifier();
       const codeChallenge = await deriveCodeChallenge(codeVerifier);
@@ -230,70 +227,10 @@ export default function Home() {
         `prompt=select_account&` +
         `state=${encodeURIComponent(window.location.pathname)}`;
       
-      if (isElectron && window.electronAPI) {
-        try {
-          setIsLoading(true);
-          setLoadingProgress({message: 'Starting Azure authentication process...', percent: 5});
-          setAuthError(null);
-          console.log('Using Electron OAuth flow');
-          
-          // Use a Promise to handle both the IPC invoke return and the 'oauth-code' event
-          const storedVerifier = sessionStorage.getItem('pkce_verifier') || undefined;
-          
-          // Create a promise that resolves when we get the OAuth code
-          const oauthCodePromise = new Promise((resolve, reject) => {
-            const onOauthCode = (event: any, payload: any) => {
-              console.log('oauth-code event received from main process');
-              if (window.electronAPI?.removeAllListeners) {
-                window.electronAPI.removeAllListeners('oauth-code');
-              }
-              resolve(payload);
-            };
-            
-            if (window.electronAPI?.on) {
-              window.electronAPI.on('oauth-code', onOauthCode);
-            }
-            
-            // Set a timeout to prevent hanging
-            setTimeout(() => {
-              if (window.electronAPI?.removeAllListeners) {
-                window.electronAPI.removeAllListeners('oauth-code');
-              }
-              reject(new Error('OAuth timeout'));
-            }, 120000); // 2 minutes timeout
-          });
-          
-          // Start the OAuth flow
-          setLoadingProgress({message: 'Redirecting to Azure for authentication...', percent: 15});
-          if (window.electronAPI?.invoke) {
-            window.electronAPI.invoke('oauth-login', authUrl).catch(error => {
-              console.error('OAuth invoke error:', error);
-              // This is just for the invoke call, we still wait for the oauth-code event
-            });
-          }
-          
-          // Wait for the OAuth code from the event
-          const payload: any = await oauthCodePromise;
-          console.log('Proceeding to token exchange with code from event');
-          setLoadingProgress({message: 'Received authentication response from Azure, processing...', percent: 25});
-          await handleAuthCallback(payload.code, payload.redirectUri, storedVerifier);
-        } catch (error) {
-          console.error('Electron OAuth error:', error);
-          setAuthError(`Authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        } finally {
-          // Ensure we always clean up listeners and stop loading
-          if (window.electronAPI?.removeAllListeners) {
-            window.electronAPI.removeAllListeners('oauth-code');
-          }
-          setIsLoading(false);
-          setLoadingProgress(null);
-        }
-      } else {
-        console.log('Using browser OAuth flow');
-        // Browser flow - mark that we're waiting for auth (for polling)
-        sessionStorage.setItem('awaiting_auth', 'true');
-        window.location.href = authUrl;
-      }
+      console.log('Using browser OAuth flow');
+      // Browser flow - mark that we're waiting for auth (for polling)
+      sessionStorage.setItem('awaiting_auth', 'true');
+      window.location.href = authUrl;
     } catch (error) {
       console.error('Error in initiateAzureLogin:', error);
       setAuthError(`Login error: ${error instanceof Error ? error.message : 'Unknown error'}`);
