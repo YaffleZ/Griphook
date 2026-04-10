@@ -12,10 +12,11 @@ A modern, secure web application for managing Azure Key Vault secrets. Run it lo
 
 ## � Quick Start
 
-Pull the pre-built image and run — no configuration needed:
-
 ```bash
-docker run -d --name griphook -p 3000:3000 ghcr.io/yafflez/griphook:latest
+git clone https://github.com/YaffleZ/Griphook.git
+cd Griphook
+docker build -t griphook:latest .
+docker run -d --name griphook -p 3000:3000 griphook:latest
 ```
 
 Then open **http://localhost:3000** and sign in with your Azure account.
@@ -54,13 +55,7 @@ Then open **http://localhost:3000** and sign in with your Azure account.
 
 ## 🐳 Docker
 
-### Pull from registry (recommended)
-
-```bash
-docker run -d --name griphook -p 3000:3000 ghcr.io/yafflez/griphook:latest
-```
-
-### Build locally
+### Build and run
 
 ```bash
 git clone https://github.com/YaffleZ/Griphook.git

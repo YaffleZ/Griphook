@@ -6,15 +6,7 @@ This guide covers running, configuring, and deploying Griphook with Docker.
 
 ## Quick Start
 
-### Pull from GitHub Container Registry (recommended)
-
-```bash
-docker run -d --name griphook -p 3000:3000 ghcr.io/yafflez/griphook:latest
-```
-
-Open **http://localhost:3000**, sign in with Azure, done.
-
-### Build locally
+### Build and run
 
 ```bash
 git clone https://github.com/YaffleZ/Griphook.git
@@ -22,6 +14,8 @@ cd Griphook
 docker build -t griphook:latest .
 docker run -d --name griphook -p 3000:3000 griphook:latest
 ```
+
+Open **http://localhost:3000**, sign in with Azure, done.
 
 ### Docker Compose
 
@@ -58,7 +52,7 @@ If your network performs TLS inspection with a self-signed certificate, the cont
 docker run -d --name griphook -p 3000:3000 \
   -v /path/to/corporate-ca.pem:/etc/ssl/certs/corporate-ca.pem \
   -e NODE_EXTRA_CA_CERTS=/etc/ssl/certs/corporate-ca.pem \
-  ghcr.io/yafflez/griphook:latest
+  griphook:latest
 ```
 
 Or add the certificate to `./certs/corporate-ca.pem` before building locally — the Dockerfile copies it automatically and runs `update-ca-certificates`.
@@ -68,19 +62,22 @@ Or add the certificate to `./certs/corporate-ca.pem` before building locally —
 ## Updating
 
 ```bash
-docker pull ghcr.io/yafflez/griphook:latest
+git pull
+docker build -t griphook:latest .
 docker stop griphook && docker rm griphook
-docker run -d --name griphook -p 3000:3000 ghcr.io/yafflez/griphook:latest
+docker run -d --name griphook -p 3000:3000 griphook:latest
 ```
 
 ---
 
 ## Multi-platform builds (maintainers)
 
+Tag and push to a registry when releasing:
+
 ```bash
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
-  -t ghcr.io/yafflez/griphook:latest \
+  -t ghcr.io/yafflez/griphook:<version> \
   --push .
 ```
 
@@ -94,7 +91,7 @@ docker buildx build \
 docker run -d --name griphook \
   --memory=512m --cpus=1.0 \
   -p 3000:3000 \
-  ghcr.io/yafflez/griphook:latest
+  griphook:latest
 ```
 
 ### Behind nginx (HTTPS)
@@ -125,7 +122,7 @@ docker exec griphook node healthcheck.js
 
 **Port already in use**
 ```bash
-docker run -d --name griphook -p 8080:3000 ghcr.io/yafflez/griphook:latest
+docker run -d --name griphook -p 8080:3000 griphook:latest
 ```
 
 **Authentication fails after redirect**
@@ -143,5 +140,5 @@ Mount your corporate CA as described in the [Corporate networks](#corporate-netw
 
 **Image vulnerabilities scan**
 ```bash
-docker scout cves ghcr.io/yafflez/griphook:latest
+docker scout cves griphook:latest
 ```

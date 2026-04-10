@@ -9,13 +9,16 @@ Griphook runs as a local web application inside Docker. There is nothing to inst
 
 ---
 
-## Step 1 — Run the container
+## Step 1 — Build and run the container
 
 ```bash
-docker run -d --name griphook -p 3000:3000 ghcr.io/yafflez/griphook:latest
+git clone https://github.com/YaffleZ/Griphook.git
+cd Griphook
+docker build -t griphook:latest .
+docker run -d --name griphook -p 3000:3000 griphook:latest
 ```
 
-Or with Docker Compose:
+Or with Docker Compose (from the cloned repo directory):
 
 ```bash
 docker compose up -d
@@ -63,7 +66,7 @@ If your company intercepts HTTPS traffic with a self-signed CA, the container ne
 docker run -d --name griphook -p 3000:3000 \
   -v /path/to/corporate-ca.pem:/etc/ssl/certs/corporate-ca.pem \
   -e NODE_EXTRA_CA_CERTS=/etc/ssl/certs/corporate-ca.pem \
-  ghcr.io/yafflez/griphook:latest
+  griphook:latest
 ```
 
 ---
@@ -71,9 +74,11 @@ docker run -d --name griphook -p 3000:3000 \
 ## Updating
 
 ```bash
-docker pull ghcr.io/yafflez/griphook:latest
+cd Griphook
+git pull
+docker build -t griphook:latest .
 docker stop griphook && docker rm griphook
-docker run -d --name griphook -p 3000:3000 ghcr.io/yafflez/griphook:latest
+docker run -d --name griphook -p 3000:3000 griphook:latest
 ```
 
 ---
@@ -100,7 +105,7 @@ docker logs griphook
 
 **Port 3000 already in use**
 ```bash
-docker run -d --name griphook -p 8080:3000 ghcr.io/yafflez/griphook:latest
+docker run -d --name griphook -p 8080:3000 griphook:latest
 # then open http://localhost:8080
 ```
 
