@@ -168,7 +168,10 @@ export default function Home() {
       // Generate PKCE pair server-side (avoids crypto.subtle unavailability in
       // non-secure browser contexts such as plain http:// network addresses)
       const pkceRes = await fetch('/api/auth/pkce');
-      if (!pkceRes.ok) throw new Error('Failed to generate PKCE values');
+      if (!pkceRes.ok) {
+        const body = await pkceRes.text().catch(() => '');
+        throw new Error(`Failed to generate PKCE values (${pkceRes.status}): ${body}`);
+      }
       const { verifier, challenge } = await pkceRes.json();
 
       // Store verifier in localStorage — survives full-page cross-origin navigations
