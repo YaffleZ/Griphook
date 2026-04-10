@@ -87,10 +87,11 @@ export async function POST(request: NextRequest) {
       // Return token and subscriptions only - Key Vaults will be loaded separately
       return NextResponse.json({ token: tokenData, subscriptions, keyVaults: [] });
 
-    } catch (azureError) {
-      console.error('Failed to query Azure resources:', azureError);
-      // Fall back to returning just the token and empty subscriptions if discovery fails
-      return NextResponse.json({ token: tokenData, subscriptions: [], keyVaults: [] });
+    } catch (azureError: any) {
+      console.error('Failed to query Azure subscriptions:', azureError);
+      const discoveryError = azureError?.message || String(azureError);
+      // Return the token so the user is authenticated, but surface the error
+      return NextResponse.json({ token: tokenData, subscriptions: [], keyVaults: [], discoveryError });
     }
 
   } catch (error) {

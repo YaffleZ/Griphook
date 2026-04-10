@@ -297,9 +297,13 @@ export default function Home() {
       setKeyVaults([]);
       setFilteredKeyVaults([]);
       console.log('Subscriptions state set:', data.subscriptions || []);
-      
-      // Both web and Electron versions: Always show subscription selection screen for user choice
-      console.log('Always showing subscription selection screen for user confirmation');
+
+      // Surface any ARM discovery error so the user can see what went wrong
+      if (data.discoveryError) {
+        console.warn('Subscription discovery error:', data.discoveryError);
+        setAuthError(`Signed in successfully, but failed to load subscriptions: ${data.discoveryError}`);
+      }
+
       // Pre-select all subscriptions so users can see them all and modify if needed
       const allSubscriptionNames = (data.subscriptions || [])
         .map((sub: SubscriptionInfo) => sub.displayName || sub.subscriptionId || '')
@@ -585,7 +589,7 @@ export default function Home() {
                 </div>
                 
                 <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {subscriptions.map((subscription) => (
+                  {[...subscriptions].sort((a, b) => (a.displayName || a.subscriptionId || '').localeCompare(b.displayName || b.subscriptionId || '')).map((subscription) => (
                     <div 
                       key={subscription.subscriptionId || subscription.displayName} 
                       className={`flex items-center p-4 rounded-lg border cursor-pointer transition-colors ${

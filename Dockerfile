@@ -32,6 +32,18 @@ RUN npm run build
 FROM node:20-alpine AS runner
 WORKDIR /app
 
+# Install CA certificates so NODE_OPTIONS=--use-system-ca has something to use
+# (required for corporate TLS inspection proxies)
+RUN apk add --no-cache ca-certificates
+
+# Copy optional corporate CA certificate if provided at build time
+# Place your certificate at ./certs/corporate-ca.pem before building
+COPY certs/ /tmp/certs/
+RUN if [ -f /tmp/certs/corporate-ca.pem ]; then \
+      cp /tmp/certs/corporate-ca.pem /usr/local/share/ca-certificates/corporate-ca.crt && \
+      update-ca-certificates; \
+    fi && rm -rf /tmp/certs
+
 # Create non-root user for security
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -39,6 +51,8 @@ RUN adduser --system --uid 1001 nextjs
 # Set production environment
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+# Trust system CA store — required for Azure API calls on corporate networks
+ENV NODE_OPTIONS=--use-system-ca
 
 # Copy built application
 COPY --from=builder /app/public ./public
