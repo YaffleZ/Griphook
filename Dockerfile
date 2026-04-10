@@ -32,12 +32,9 @@ RUN npm run build
 FROM node:20-alpine AS runner
 WORKDIR /app
 
-# Install CA certificates so NODE_OPTIONS=--use-system-ca has something to use
-# (required for corporate TLS inspection proxies)
-RUN apk add --no-cache ca-certificates
-
-# Copy optional corporate CA certificate if provided at build time
-# Place your certificate at ./certs/corporate-ca.pem before building
+# node:20-alpine already includes ca-certificates (Node.js depends on it).
+# Copy optional corporate CA certificate if provided at build time.
+# Place your certificate at ./certs/corporate-ca.pem before building.
 COPY certs/ /tmp/certs/
 RUN if [ -f /tmp/certs/corporate-ca.pem ]; then \
       cp /tmp/certs/corporate-ca.pem /usr/local/share/ca-certificates/corporate-ca.crt && \
