@@ -3,7 +3,11 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Use standalone for Docker deployment
   output: 'standalone',
-  
+
+  // Keep undici external so Next.js doesn't bundle it — needed for instrumentation.ts
+  // to patch undici's global dispatcher for corporate TLS trust
+  serverExternalPackages: ['undici'],
+
   // Development and production optimizations
   experimental: {
     optimizePackageImports: ['lucide-react'],
