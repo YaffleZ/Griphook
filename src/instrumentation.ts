@@ -23,13 +23,25 @@ export async function register() {
     const ca = readFileSync(caBundlePath);
 
     // 1. Patch https.globalAgent for clients using https.request
-    const https = await import('https');
-    https.globalAgent = new https.Agent({ ca });
+    //    (may be read-only in bundled context — that's fine, we just skip it)
+    try {
+      const https = await import('https');
+      https.globalAgent = new https.Agent({ ca });
+      console.log('[TLS] https.globalAgent patched');
+    } catch {
+      // read-only in bundled Next.js context — not fatal
+    }
 
     // 2. Patch undici global dispatcher for clients using fetch() (Node 18+)
-    //    @azure/core-rest-pipeline uses fetch() in recent versions
-    const { Agent, setGlobalDispatcher } = await import('undici');
-    setGlobalDispatcher(new Agent({ connect: { ca: ca.toString() } }));
+    //    @azure/core-rest-pipeline uses globalThis.fetch which is undici-backed
+    //    setGlobalDispatcher affects ALL undici fetch calls including globalThis.fetch
+    try {
+      const { Agent, setGlobalDispatcher } = await import('undici');
+      setGlobalDispatcher(new Agent({ connect: { ca } }));
+      console.log('[TLS] undici global dispatcher patched');
+    } catch (e) {
+      console.warn('[TLS] Could not patch undici dispatcher:', e);
+    }
 
     console.log(`[TLS] Corporate CA loaded from ${caBundlePath}`);
   } catch (err) {
