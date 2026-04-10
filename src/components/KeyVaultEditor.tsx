@@ -703,10 +703,15 @@ export default function KeyVaultEditor({ keyVault, accessToken }: KeyVaultEditor
     }
   };
 
-  // Filter secrets based on search term
-  const filteredSecrets = secrets.filter(secret =>
-    secret.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter secrets based on search term (name and loaded value)
+  const filteredSecrets = secrets.filter(secret => {
+    const term = searchTerm.toLowerCase();
+    if (!term) return true;
+    if (secret.name.toLowerCase().includes(term)) return true;
+    const val = secretValues[secret.name];
+    if (val && val.toLowerCase().includes(term)) return true;
+    return false;
+  });
 
   return (
     <div className="space-y-6">
