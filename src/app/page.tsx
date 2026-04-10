@@ -46,39 +46,6 @@ const AZURE_CONFIG = (() => {
 })();
 
 export default function Home() {
-  // PKCE helpers (client-side only)
-  const base64UrlEncode = (arrayBuffer: ArrayBuffer): string => {
-    const bytes = new Uint8Array(arrayBuffer);
-    let binary = '';
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    const base64 = typeof btoa !== 'undefined' ? btoa(binary) : '';
-    return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-  };
-
-  const generateCodeVerifier = (): string => {
-    const length = 64; // between 43 and 128
-    const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
-    const values = new Uint32Array(length);
-    if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
-      window.crypto.getRandomValues(values);
-    } else {
-      for (let i = 0; i < values.length; i++) values[i] = Math.floor(Math.random() * 4294967296);
-    }
-    let verifier = '';
-    for (let i = 0; i < length; i++) {
-      verifier += charset[values[i] % charset.length];
-    }
-    return verifier;
-  };
-
-  const deriveCodeChallenge = async (verifier: string): Promise<string> => {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(verifier);
-    const digest = await window.crypto.subtle.digest('SHA-256', data);
-    return base64UrlEncode(digest);
-  };
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [keyVaults, setKeyVaults] = useState<KeyVault[]>([]);
   const [filteredKeyVaults, setFilteredKeyVaults] = useState<KeyVault[]>([]);
@@ -198,55 +165,33 @@ export default function Home() {
 
   const initiateAzureLogin = async () => {
     try {
-      // Generate PKCE values
-      const codeVerifier = generateCodeVerifier();
-      const codeChallenge = await deriveCodeChallenge(codeVerifier);
-      sessionStorage.setItem('pkce_verifier', codeVerifier);
-      
-      const authUrl = `https://login.microsoftonline.com/${AZURE_CONFIG.tenantId}/oauth2/v2.0/authorize?` +
+      // Generate PKCE pair server-side (avoids crypto.subtle unavailability in
+      // non-secure browser contexts such as plain http:// network addresses)
+      const pkceRes = await fetch('/api/auth/pkce');
+      if (!pkceRes.ok) throw new Error('Failed to generate PKCE values');
+      const { verifier, challenge } = await pkceRes.json();
+
+      // Store verifier in localStorage — survives full-page cross-origin navigations
+      localStorage.setItem('pkce_verifier', verifier);
+
+      const authUrl =
+        `https://login.microsoftonline.com/${AZURE_CONFIG.tenantId}/oauth2/v2.0/authorize?` +
         `client_id=${AZURE_CONFIG.clientId}&` +
         `response_type=code&` +
         `redirect_uri=${encodeURIComponent(AZURE_CONFIG.redirectUri)}&` +
         `scope=${encodeURIComponent(AZURE_CONFIG.scope)}&` +
-        `code_challenge=${encodeURIComponent(codeChallenge)}&` +
+        `code_challenge=${encodeURIComponent(challenge)}&` +
         `code_challenge_method=S256&` +
         `response_mode=query&` +
         `prompt=select_account&` +
         `state=${encodeURIComponent(window.location.pathname)}`;
-      
-      console.log('Using browser OAuth flow');
-      // Browser flow - mark that we're waiting for auth (for polling)
-      sessionStorage.setItem('awaiting_auth', 'true');
+
       window.location.href = authUrl;
     } catch (error) {
       console.error('Error in initiateAzureLogin:', error);
       setAuthError(`Login error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
-
-  // Poll for authentication when waiting
-  useEffect(() => {
-    if (isAuthenticated) return;
-    
-    const checkAuth = async () => {
-      const awaitingAuth = sessionStorage.getItem('awaiting_auth');
-      if (!awaitingAuth) return;
-      
-      // Check if tokens appeared in encrypted storage or localStorage (for migration)
-      const hasAuthData = await AzureSecureStorage.hasAnyAuthData();
-      
-      if (hasAuthData) {
-        // Auth completed in browser, load stored auth data which will trigger subscription selection
-        sessionStorage.removeItem('awaiting_auth');
-        await loadStoredAuthData();
-      }
-    };
-    
-    // Check every 2 seconds
-    const interval = setInterval(checkAuth, 2000);
-    
-    return () => clearInterval(interval);
-  }, [isAuthenticated]);
 
   const handleAuthCallback = async (code: string, overrideRedirectUri?: string, codeVerifier?: string) => {
     console.log('handleAuthCallback called');
@@ -279,7 +224,7 @@ export default function Home() {
           // Use the exact redirectUri used during Electron OAuth if provided
           redirectUri: overrideRedirectUri || AZURE_CONFIG.redirectUri,
           tenantId: AZURE_CONFIG.tenantId,
-          code_verifier: codeVerifier || sessionStorage.getItem('pkce_verifier') || undefined,
+          code_verifier: codeVerifier || localStorage.getItem('pkce_verifier') || undefined,
         }),
       });
       
@@ -368,7 +313,7 @@ export default function Home() {
       console.error('Failed to handle auth callback:', error);
       setAuthError(error instanceof Error ? error.message : 'Authentication failed');
     } finally {
-      try { sessionStorage.removeItem('pkce_verifier'); } catch {}
+      try { localStorage.removeItem('pkce_verifier'); } catch {}
       setIsLoading(false);
       setLoadingProgress(null);
     }
@@ -384,16 +329,25 @@ export default function Home() {
     localStorage.removeItem('azure_refresh_token');
     localStorage.removeItem('azure_key_vaults');
     localStorage.removeItem('azure_subscriptions');
-    
+    // Clear vault cache entries
+    Object.keys(localStorage)
+      .filter(k => k.startsWith('vault_cache_'))
+      .forEach(k => localStorage.removeItem(k));
+
     setAccessToken(null);
     setRefreshToken(null);
     setKeyVaultToken(null);
     setIsAuthenticated(false);
+    setShowSubscriptionSelection(false);
+    setSubscriptions([]);
+    setSelectedSubscriptions([]);
     setKeyVaults([]);
     setFilteredKeyVaults([]);
     setSearchTerm('');
     setSelectedKeyVault(null);
     setAuthError(null);
+    setIsLoading(false);
+    setLoadingProgress(null);
   };
 
   const selectKeyVault = async (keyVault: KeyVault) => {

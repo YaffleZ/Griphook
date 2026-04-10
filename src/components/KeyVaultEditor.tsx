@@ -540,28 +540,45 @@ export default function KeyVaultEditor({ keyVault, accessToken }: KeyVaultEditor
   /**
    * Load all secret values for batch editing (optimized with parallel loading)
    */
-  const loadAllSecretValues = async () => {
+  const allSecretsVisible = secrets.length > 0 && secrets.every(s => visibleSecrets.has(s.name));
+
+  const toggleAllSecretsVisible = async () => {
+    if (allSecretsVisible) {
+      // Hide all secrets
+      setVisibleSecrets(new Set());
+      return;
+    }
+
     if (!accessToken || !keyVault) return;
 
     try {
       setLoading(true);
       setError(null);
 
-      // Find secrets that don't have values loaded yet
+      // Fetch any values not yet loaded
       const secretsToLoad = secrets.filter(secret => !secretValues[secret.name]).map(s => s.name);
-      
-      if (secretsToLoad.length === 0) {
-        return; // All values already loaded
+      if (secretsToLoad.length > 0) {
+        await batchLoadSecretValues(secretsToLoad);
       }
 
-      // Use batch loading for better performance
-      await batchLoadSecretValues(secretsToLoad);
+      // Make all secrets visible
+      setVisibleSecrets(new Set(secrets.map(s => s.name)));
     } catch (err) {
       console.error('Failed to load all secret values:', err);
       setError(createUserFriendlyError(err, 'load all secret values'));
     } finally {
       setLoading(false);
     }
+  };
+
+  // Keep loadAllSecretValues for handleBatchEdit
+  const loadAllSecretValues = async () => {
+    if (!accessToken || !keyVault) return;
+    const secretsToLoad = secrets.filter(secret => !secretValues[secret.name]).map(s => s.name);
+    if (secretsToLoad.length > 0) {
+      await batchLoadSecretValues(secretsToLoad);
+    }
+    setVisibleSecrets(new Set(secrets.map(s => s.name)));
   };
 
   /**
@@ -933,6 +950,19 @@ export default function KeyVaultEditor({ keyVault, accessToken }: KeyVaultEditor
             >
               <Plus className="h-4 w-4" />
               Add Secret
+            </button>
+
+            <button
+              onClick={toggleAllSecretsVisible}
+              disabled={loading || secrets.length === 0}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed ${
+                allSecretsVisible
+                  ? 'bg-gray-600 text-white hover:bg-gray-700'
+                  : 'bg-green-600 text-white hover:bg-green-700'
+              }`}
+            >
+              {allSecretsVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              {allSecretsVisible ? 'Hide All Values' : 'Show All Values'}
             </button>
 
             <button
