@@ -48,7 +48,9 @@ RUN adduser --system --uid 1001 nextjs
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 # Trust system CA store — required for Azure API calls on corporate networks
+# NODE_OPTIONS=--use-system-ca handles fetch(); NODE_EXTRA_CA_CERTS handles the Azure SDK (core-rest-pipeline)
 ENV NODE_OPTIONS=--use-system-ca
+ENV NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
 
 # Copy built application
 COPY --from=builder /app/public ./public

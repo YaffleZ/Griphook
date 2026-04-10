@@ -17,7 +17,8 @@
   },
   "license": "MIT",
   "scripts": {
-    "dev": "cross-env NODE_OPTIONS=--use-system-ca next dev --turbopack",
+    "dev": "cross-env NODE_OPTIONS=--use-system-ca next dev",
+    "dev:turbo": "cross-env NODE_OPTIONS=--use-system-ca next dev --turbopack",
     "build": "next build",
     "start": "cross-env NODE_OPTIONS=--use-system-ca next start",
     "lint": "next lint",
