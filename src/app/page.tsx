@@ -112,19 +112,6 @@ export default function Home() {
     }
   }, []);
 
-  // Debug: Log Electron API availability
-  useEffect(() => {
-    console.log('Checking Electron API availability...');
-    console.log('typeof window:', typeof window);
-    console.log('window.electronAPI:', typeof window !== 'undefined' ? window.electronAPI : 'window undefined');
-    if (typeof window !== 'undefined' && window.electronAPI) {
-      console.log('Electron API detected:', {
-        platform: window.electronAPI.platform,
-        versions: window.electronAPI.versions
-      });
-    }
-  }, []);
-
   // Check for auth callback on page load
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
