@@ -37,8 +37,7 @@ WORKDIR /app
 # Place your certificate at ./certs/corporate-ca.pem before building.
 COPY certs/ /tmp/certs/
 RUN if [ -f /tmp/certs/corporate-ca.pem ]; then \
-      cp /tmp/certs/corporate-ca.pem /usr/local/share/ca-certificates/corporate-ca.crt && \
-      update-ca-certificates; \
+      cat /tmp/certs/corporate-ca.pem >> /etc/ssl/certs/ca-certificates.crt; \
     fi && rm -rf /tmp/certs
 
 # Create non-root user for security
