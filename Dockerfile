@@ -2,7 +2,7 @@
 # Multi-stage Docker build for production optimization
 
 # Stage 1: Dependencies
-FROM node:20-alpine AS deps
+FROM node:24-alpine AS deps
 WORKDIR /app
 
 # Copy package files
@@ -12,7 +12,7 @@ COPY package.json package-lock.json* ./
 RUN npm ci && npm cache clean --force
 
 # Stage 2: Builder
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 
 # Copy dependencies from deps stage
@@ -29,7 +29,7 @@ ENV NODE_ENV=production
 RUN npm run build
 
 # Stage 3: Runner
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 WORKDIR /app
 
 # node:20-alpine already includes ca-certificates (Node.js depends on it).
@@ -47,8 +47,8 @@ RUN adduser --system --uid 1001 nextjs
 # Set production environment
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-# Trust the system CA bundle (corporate CA is appended to it during build)
-ENV NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+# Trust system CA store — required for Azure API calls on corporate networks
+ENV NODE_OPTIONS=--use-system-ca
 
 # Copy built application
 COPY --from=builder /app/public ./public
