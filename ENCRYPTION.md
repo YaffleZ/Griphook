@@ -1,7 +1,7 @@
-# 🔐 Griphook Encryption Implementation
+# Griphook Encryption
 
 ## Overview
-Griphook now implements **AES-256-GCM encryption** for all sensitive authentication data stored locally, significantly improving security posture.
+Griphook uses **AES-256-GCM encryption** for all sensitive authentication data stored in the browser's localStorage.
 
 ## 🛡️ Security Features
 
@@ -107,17 +107,18 @@ AzureSecureStorage.clearAllAzureData();
 - Data encrypted on one device cannot be decrypted on another
 - Provides additional layer of protection against credential theft
 
-## ⚠️ Important Notes
+## Important Notes
 
-### **Key Derivation**
-The encryption key is currently derived from:
+### Key Derivation
+The encryption key is derived from:
 - Browser fingerprint (user agent, screen size, timezone, canvas)
 - Fixed salt for consistency
 - PBKDF2 with 100,000 iterations
 
-### **Future Enhancements**
-For production deployment, consider:
-- User-provided passwords/PINs for additional security
+This means encrypted data is device-bound: tokens cannot be decrypted on a different device or browser profile.
+
+### Signing out
+`AzureSecureStorage.clearAllAzureData()` removes all encrypted keys from localStorage. The Sign Out button in the UI calls this method before resetting application state.
 - Hardware security module (HSM) integration
 - Windows Credential Manager / macOS Keychain integration
 - Biometric authentication for key access

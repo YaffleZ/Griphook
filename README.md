@@ -1,224 +1,149 @@
-# Azure Key Vault Advanced Secrets Editor
+# Griphook — Azure Key Vault Secrets Editor
 
-A modern, secure application for managing Azure Key Vault secrets with advanced features including batch editing, adding new secrets, and deletion capabilities. Available as both a web application and native desktop app.
+A modern, secure web application for managing Azure Key Vault secrets. Run it locally with Docker — no Azure app registration or server configuration required.
 
-*Named after the goblin vault keeper at Gringotts - your trusted guardian for Azure Key Vault secrets.*
+*Named after the goblin vault keeper at Gringotts — your trusted guardian for Azure Key Vault secrets.*
 
 ![Griphook](https://img.shields.io/badge/Griphook-Azure%20Key%20Vault-gold)
 ![Next.js](https://img.shields.io/badge/Next.js-15+-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5+-blue)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-3+-blue)
-![Electron](https://img.shields.io/badge/Electron-Desktop%20App-blue)
+![Docker](https://img.shields.io/badge/Docker-Containerized-blue)
 
-## 📥 Download Desktop App
+## � Quick Start
 
-**🖥️ Native Desktop Application Available!**
+Pull the pre-built image and run — no configuration needed:
 
-Download the latest release for your operating system:
+```bash
+docker run -d --name griphook -p 3000:3000 ghcr.io/yafflez/griphook:latest
+```
 
-[![Download for Windows](https://img.shields.io/badge/Download-Windows-blue?style=for-the-badge&logo=windows)](https://github.com/YaffleZ/Griphook/releases/latest)
-[![Download for macOS](https://img.shields.io/badge/Download-macOS-black?style=for-the-badge&logo=apple)](https://github.com/YaffleZ/Griphook/releases/latest)
+Then open **http://localhost:3000** and sign in with your Azure account.
 
-### 🎯 For End Users: Simple Installation
-1. **[Download the installer](https://github.com/YaffleZ/Griphook/releases/latest)** for your operating system
-2. **Run the installer** (Windows: `.exe`, macOS: `.dmg`)
-3. **Launch Griphook** and sign in with your Azure account
-4. **Start managing** your Azure Key Vault secrets!
+> **Corporate/VPN networks with TLS inspection?** See the [Docker guide](DOCKER.md#corporate-networks) for mounting your CA certificate.
 
-📖 **Need help?** See the **[Installation Guide](INSTALL.md)** for detailed instructions.
-
-### 🔧 For Developers: Build from Source
+---
 
 ## ✨ Features
 
-### 🔐 **Secure Authentication**
-- **Azure AD OAuth** authentication with user-delegated permissions
-- **Individual user permissions** - users can only access Key Vaults they have access to
-- **Local browser caching** for improved performance and security
+### 🔐 Authentication
+- OAuth 2.0 PKCE flow via the Azure CLI public client — **no app registration required**
+- Works with any Azure tenant (personal, work, school)
+- Users can only access Key Vaults they already have RBAC permissions on
 
-### 📝 **Secret Management**
-- **Batch Operations**: Select and manage multiple secrets simultaneously
-- **Add New Secrets**: Create secrets with metadata, tags, and content types
-- **Secure Deletion**: Confirmation dialogs with warnings about dependencies
-- **In-place Editing**: Edit secret values directly in the interface
+### 📝 Secret Management
+- **Show / Hide All Values** — batch-reveal or hide all secrets at once
+- **Batch Edit** — edit multiple secrets in a single modal
+- **Add New Secrets** — with optional content type and tags
+- **In-place Editing** — edit values directly in the table or card view
+- **Secure Deletion** — confirmation dialog before any delete
 
-### 🔍 **Advanced Features**
-- **Search & Filter**: Quick search across all secret names and Key Vaults
-- **Multi-Key Vault Support**: Manage secrets across multiple Key Vaults
-- **Performance Optimized**: Fast secret loading without expensive version history lookups
-- **Real-time Updates**: Instant feedback for all operations
-- **Audit Information**: View creation dates, update times, and expiration dates
+### 🔍 Search & Browse
+- **Search by name or value** — searches loaded secret values too
+- **Table and Card views** — toggle between layouts
+- **Subscription selection** — pick which subscriptions to load Key Vaults from (sorted alphabetically)
+- **Multi-vault support** — browse across all your accessible Key Vaults
 
-### 🎨 **Modern UI/UX**
-- **Responsive Design**: Works seamlessly on desktop and mobile
-- **Tailwind CSS**: Clean, modern interface
-- **Loading States**: Clear indicators for ongoing operations
-- **Error Handling**: Comprehensive error messages and recovery guidance
+### 🛡️ Security
+- **AES-256-GCM** encrypted local storage for tokens and metadata
+- **PKCE** generated server-side — no dependency on `window.crypto.subtle`
+- Secret values lazy-loaded on demand, never cached server-side
+- All operations run under the signed-in user's identity
 
-### � **Enterprise Security**
-- **AES-256-GCM Encryption**: All sensitive authentication data encrypted locally
-- **Device-bound Keys**: Encryption keys tied to your specific device
-- **Automatic Migration**: Seamless upgrade from plain text storage
-- **Zero Trust Architecture**: Authentication tokens never stored in plain text
+---
 
-### �🖥️ **Desktop App Benefits**
-- **Native Performance**: Faster startup and better resource management
-- **Offline Capabilities**: Some features work without internet (viewing cached data)
-- **System Integration**: Native notifications, system tray, and OS-specific menus
-- **Enhanced Security**: Runs in isolated environment with better credential protection
-- **Encrypted Storage**: All Azure credentials and tokens secured with enterprise-grade encryption
+## 🐳 Docker
 
-## 🚀 Getting Started
+### Pull from registry (recommended)
 
-### Prerequisites
-
-- Node.js 18+ and npm
-- Azure AD application registration with appropriate permissions
-- Access to Azure Key Vaults you want to manage
-
-### Quick Start Options
-
-#### Option 1: Local Development
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd Griphook
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Run the development server**
-   ```bash
-   npm run dev
-   ```
-
-4. **Open your browser**
-   
-   Navigate to [http://localhost:3000](http://localhost:3000) and sign in with your Azure account
-
-#### Option 2: Docker (Recommended for Easy Setup) 🐳
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd Griphook
-   ```
-
-2. **Run with Docker Compose**
-   ```bash
-   docker-compose up -d
-   ```
-
-3. **Access the application**
-   
-   Navigate to [http://localhost:3000](http://localhost:3000) and sign in with your Azure account
-
-**Alternative Docker commands:**
 ```bash
-# Build and run manually
-npm run docker:build
-npm run docker:run
-
-# Or pull from registry (when available)
-docker pull yourusername/griphook:latest
-docker run -d -p 3000:3000 yourusername/griphook:latest
+docker run -d --name griphook -p 3000:3000 ghcr.io/yafflez/griphook:latest
 ```
 
-📖 **For detailed Docker setup instructions, see [DOCKER.md](DOCKER.md)**
+### Build locally
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+```bash
+git clone https://github.com/YaffleZ/Griphook.git
+cd Griphook
+docker build -t griphook:latest .
+docker run -d --name griphook -p 3000:3000 griphook:latest
+```
 
-3. **Configure environment variables**
-   ```bash
-   cp .env.example .env.local
-   ```
+### Docker Compose
 
-   Edit `.env.local` with your Azure tenant ID:
-   ```env
-   # Azure AD Configuration (uses Azure CLI public client - no app registration needed!)
-   NEXT_PUBLIC_AZURE_TENANT_ID=your-azure-tenant-id-here
-   ```
+```bash
+docker compose up -d
+```
 
-4. **Run the development server**
-   ```bash
-   npm run dev
-   ```
+See **[DOCKER.md](DOCKER.md)** for production configuration, corporate TLS setup, and troubleshooting.
 
-5. **Open your browser**
-   
-   Navigate to [http://localhost:3000](http://localhost:3000) and sign in with your Azure account
+---
 
-#### Option 3: Desktop Development
+## 🔧 Development
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/YaffleZ/Griphook.git
-   cd Griphook
-   ```
+### Prerequisites
+- Node.js 20+
+- An Azure account with access to at least one Key Vault
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   # Also install Electron dependencies
-   npm install --save-dev electron electron-builder concurrently wait-on cross-env
-   ```
+### Run locally
 
-3. **Run in development mode**
-   ```bash
-   npm run electron-dev
-   ```
-   This will start the Next.js dev server and launch the Electron app.
+```bash
+git clone https://github.com/YaffleZ/Griphook.git
+cd Griphook
+npm install
+npm run dev
+```
 
-4. **Build desktop app**
-   ```bash
-   # For current platform
-   npm run build-electron
-   
-   # For specific platforms
-   npm run electron-build -- --win  # Windows
-   npm run electron-build -- --mac  # macOS
-   ```
+Open **http://localhost:3000**.
 
-   **Or use the build scripts:**
-   ```bash
-   # Windows
-   .\scripts\build-desktop.ps1
-   
-   # macOS
-   ./scripts/build-desktop.sh
-   ```
+> The dev server starts with `NODE_OPTIONS=--use-system-ca` via `cross-env` so corporate CA certificates are trusted automatically.
 
-## Azure Setup
+### Environment variables
 
-### Required Permissions
+No variables are required. Optionally override defaults in `.env.local`:
 
-Your Azure identity (Service Principal or Managed Identity) needs the following Key Vault permissions:
+```env
+# Leave unset to use the Azure CLI public client (recommended)
+# NEXT_PUBLIC_AZURE_CLIENT_ID=your-custom-client-id
+# NEXT_PUBLIC_AZURE_TENANT_ID=your-specific-tenant-id
 
-- **Secret permissions**: Get, List, Set, Delete
-- **Optional**: Backup, Restore, Recover, Purge (for advanced operations)
+DEMO_MODE=false
+APP_NAME="Griphook"
+```
 
-### 📋 **What You Need:**
-1. **Azure Account** - Any valid Azure account with appropriate permissions
-2. **Key Vault Access** - You need RBAC permissions on the Key Vaults you want to manage:
-   - **Key Vault Secrets User** (for read access)
-   - **Key Vault Secrets Officer** (for full secret management)
+---
 
-## 🏗️ Architecture
+## 🔑 Azure Permissions Required
 
-### Authentication Flow
-- **User Authentication**: Azure AD OAuth with user-delegated permissions
-- **Key Vault Access**: Each user's Azure AD token is used to access Key Vaults
-- **Security**: Users can only access Key Vaults they have permissions to
+Griphook uses your signed-in identity. You need the following RBAC roles on each Key Vault you want to manage:
 
-### Technology Stack
-- **Frontend**: Next.js 15+ with App Router, React, TypeScript
+| Role | Access |
+|------|--------|
+| **Key Vault Secrets User** | List and read secrets |
+| **Key Vault Secrets Officer** | Full secret management (create, update, delete) |
+
+---
+
+## 📖 Documentation
+
+- [DOCKER.md](DOCKER.md) — Docker setup, corporate TLS, production deployment
+- [INSTALL.md](INSTALL.md) — Step-by-step usage guide
+- [TECHNICAL_DOCS.md](TECHNICAL_DOCS.md) — Architecture and API reference
+- [ENCRYPTION.md](ENCRYPTION.md) — Local encryption implementation details
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/my-feature`)
+3. Commit your changes
+4. Open a Pull Request
+
+## 📄 License
+
+MIT — see [LICENSE](LICENSE).
+
 - **Styling**: Tailwind CSS for responsive design
 - **Azure Integration**: Azure SDK for JavaScript
 - **Authentication**: Azure Active Directory OAuth 2.0
